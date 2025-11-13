@@ -1,0 +1,134 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>行銷儀表板首頁</title>
+  <link rel="stylesheet" href="{% static 'css/style.css' %}" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+  <header>
+    <nav class="navbar">
+      <ul>
+        <li class="/index/">首頁</li>
+        <li><a href="/history/">歷史</a></li>
+        <li><a href="/">登出</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main class="dashboard">
+    <section class="stats">
+      <div class="card green">
+        <b style="font-size: 20px;">回購率</b>
+        <h2 id="repurchaseRate">30%</h2>
+      </div>
+      <div class="card red">
+        <b style="font-size: 20px;">流失率</b>
+        <h2 id="churnRate">10%</h2>
+      </div>
+      <div class="card blue">
+        <b style="font-size: 20px;">高價值顧客佔比</b>
+        <h2 id="vipRatio">30%</h2>
+      </div>
+      <div class="card gray">
+        <b style="font-size: 20px;">總顧客數</b>
+        <h2 id="totalCustomers">8740 人</h2>
+      </div>
+    </section>
+    <div class="dashboard-row">
+
+      <!-- 左邊：會員查詢（改成跟其他方框同尺寸） -->
+      <section class="chart-card same-size-box" id="memberBox">
+        <h3>會員查詢</h3>
+    
+        <div class="input-wrap">
+          <input
+            type="text"
+            id="memberInput"
+            class="pill-input"
+            placeholder="請輸入會員編號..."
+            oninput="checkMemberId()"
+          />
+        </div>
+    
+        <div id="memberTypeDisplay" class="result is-empty">
+          <p class="result-label">此顧客為</p>
+          <span id="customerType" class="customer-type">請輸入會員編號...</span>
+          <button id="detailBtn" class="learn-more-btn" onclick="navigateToCustomerDetail()" disabled>
+            了解詳情
+          </button>
+        </div>
+      </section>
+    
+    
+      <!-- 中：圓餅圖（可放大） -->
+      <section class="chart-card same-size-box chart-zoom" id="pieBox">
+        <h3>顧客分群比例圖</h3>
+        <canvas id="pieChart"></canvas>
+      </section>
+    
+    
+      <!-- 右：折線圖（可放大 & 季/年切換） -->
+      <section class="chart-card same-size-box chart-zoom" id="lineBox">
+        <div class="chart-header">
+          <h3>顧客消費預測</h3>
+          <select id="forecastSelector">
+            <option value="quarter">季</option>
+            <option value="year">年</option>
+          </select>
+        </div>
+        <canvas id="lineChart"></canvas>
+      </section>
+    
+    </div>
+    
+    <section class="ai-section" id="aiSection">
+      <div class="ai-header">
+        <h3>AI 行銷建議</h3>
+      </div>
+
+      <!-- 客群切換 -->
+      <div class="seg-tabs" role="tablist" aria-label="客群篩選">
+        <button class="seg-tab is-active" data-seg="high" role="tab" aria-selected="true">高價值顧客</button>
+        <button class="seg-tab" data-seg="risk" role="tab" aria-selected="false">高風險顧客</button>
+        <button class="seg-tab" data-seg="new" role="tab" aria-selected="false">新進顧客</button>
+      </div>
+
+      <!-- 建議內容（會動畫切換） -->
+      <div class="seg-panel" id="segPanel" aria-live="polite">
+        <!-- JS 會把對應建議渲染到這裡 -->
+      </div>
+      <button class="ai-btn" id="seeMoreBtn">查看更多...</button>
+    </section>
+  </main>
+
+  <script src="{% static 'js/main.js' %}"></script>
+  <script>
+    // 監聽客群按鈕
+    const segTabs = document.querySelectorAll(".seg-tab");
+    let selectedSegment = "high"; // 預設高價值顧客
+  
+    segTabs.forEach(btn => {
+      btn.addEventListener("click", () => {
+        // 移除舊的 active 樣式
+        segTabs.forEach(b => b.classList.remove("is-active"));
+        btn.classList.add("is-active");
+        selectedSegment = btn.dataset.seg;
+      });
+    });
+  
+    // 點擊查看更多，帶客群參數跳轉
+    document.getElementById("seeMoreBtn").addEventListener("click", () => {
+      window.location.href = `/ai-suggestion/?seg=${selectedSegment}`;
+    });
+
+    
+
+  </script>
+  
+</body>
+</html>

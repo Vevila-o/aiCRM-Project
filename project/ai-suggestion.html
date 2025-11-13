@@ -1,0 +1,96 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>AI 行銷建議</title>
+  <link rel="stylesheet" href="{% static 'css/ai-suggestion.css' %}" />
+</head>
+<body>
+  <!-- 與首頁一致的導覽列 -->
+  <header>
+    <nav class="navbar">
+      <ul>
+        <li><a href="/index/">首頁</a></li>
+        <li><a href="/history/">歷史</a></li>
+        <li><a href="/">登出</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <!-- 固定桌機兩欄 -->
+  <main class="wrap">
+    <!-- 左側主卡片 -->
+    <section class="card">
+      <div class="chip" aria-label="顧客類別選擇">
+        <span class="chip-label">顧客類別：</span>
+
+        <!-- 讓箭頭可點：select + 疊在右邊的箭頭 -->
+        <div class="select-wrap">
+          <select id="segmentSelect" class="chip-select" aria-label="選擇顧客類別">
+            <option value="vip">高價值顧客</option>
+            <option value="risk">高風險顧客</option>
+            <option value="new">新進顧客</option>
+          </select>
+          <span class="arrow">▼</span>
+        </div>
+      </div>
+
+      <div id="content" class="content"></div>
+    </section>
+
+    <!-- 右側固定詢問區 -->
+    <aside class="side">
+      <h3 class="side-title">詢問更多</h3>
+
+      <div class="qa">
+        <label for="q" class="section-title">輸入你的問題</label>
+        <textarea id="q" placeholder="例：請為『高風險顧客』擬 3 則關懷簡訊範本"></textarea>
+        <div class="row">
+          <button class="btn" id="askBtn" type="button">查詢</button>
+          <button class="btn btn-secondary" id="clearBtn" type="button" title="清除本機對話紀錄">清除對話</button>
+        </div>
+      </div>
+
+      <div class="chat">
+        <div id="chatMessages" class="messages"></div>
+      </div>
+
+      <p class="hint">前端呼叫 <code>POST /api/chat</code>（回傳 <code>{ reply }</code>）。</p>
+    </aside>
+  </main>
+
+  <!-- 你的原本 JS -->
+  <script src="{% static 'js/ai-suggestion.js' %}"></script>
+
+  <!-- 新增：讀取 ?seg= 並套用（免改既有 JS） -->
+  <script>
+    (function () {
+      // 解析 ?seg=high|risk|new
+      const p = new URLSearchParams(window.location.search);
+      const segParam = (p.get("seg") || "").toLowerCase();
+      const map = { high: "vip", risk: "risk", new: "new", vip: "vip" };
+      const initial = map[segParam] || "vip";
+
+      // 等 DOM 都好了再套用
+      window.addEventListener("DOMContentLoaded", function () {
+        const sel = document.getElementById("segmentSelect");
+        if (!sel) return;
+
+        // 如果目前不是想要的值，才切換並觸發一次 change
+        if (sel.value !== initial) {
+          sel.value = initial;
+          // 觸發一次 change，讓你現有的監聽邏輯自動渲染對應內容
+          const evt = new Event("change", { bubbles: true });
+          sel.dispatchEvent(evt);
+        } else {
+          // 若你的既有 JS 是在載入時就先 render('vip')，為保險再觸發一次 change
+          const evt = new Event("change", { bubbles: true });
+          sel.dispatchEvent(evt);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
