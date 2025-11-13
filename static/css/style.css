@@ -125,34 +125,16 @@ header {
   padding: 6px 6px 0;
 }
 
-#memberTypeDisplay {
-  flex: 1;                        /* 把剩餘高度吃滿 */
-  display: flex;
-  flex-direction: column;
-  justify-content: space-evenly;  /* 垂直平均分配 */
-  align-items: center;            /* 水平置中 */
-}
-
-/* 微調一下間距，避免多餘 margin 撐開 */
-#memberTypeDisplay .result-label {
-  margin-top: 0;
-}
-
-#memberTypeDisplay .customer-type {
-  margin: 0;
-}
-
 .result-label {
   margin: 2px 0 0 0;
-  font-weight: bold;
-  font-size: 25px;
+  font-weight: 700;
   color: #2b2d42;
 }
 
 /* 大字：依客群著色 */
 .customer-type {
   margin: 2px 0 10px 0;
-  font-size: 45px;
+  font-size: 36px;
   font-weight: 800;
   line-height: 1.05;
   letter-spacing: .5px;
@@ -286,19 +268,23 @@ header {
 /* 讓查看更多固定在右下角 */
 .ai-btn {
   position: absolute;
-  bottom: 10px;
+  bottom: 6px;
   right: 16px;
-  background: transparent;
+  padding: 5px 14px;
+  border-radius: 8px;
+  background: #00B4D8;
   border: none;
-  color: #333;
-  font-weight: bold;
+  color: white;
+  font-weight: 700;
   font-size: 14px;
   cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0,180,216,0.3);
 }
 
 .ai-btn:hover {
-  text-decoration: underline;
+  filter: brightness(1.1);
 }
+
 
 /* ============ 三個方塊專用樣式 ============ */
 
@@ -322,7 +308,8 @@ header {
 /* 確保圖表不超出卡片 */
 .same-size-box canvas {
   max-width: 100% !important;
-  max-height: 100% !important;
+  max-height: auto !important;
+  display: block;
   object-fit: contain;
 }
 
@@ -355,3 +342,57 @@ header {
 #memberBox #memberTypeDisplay {
   margin-top: 8px;
 }
+
+/* ===== 圖表彈窗樣式 ===== */
+
+.chart-modal {
+  position: fixed;
+  inset: 0; /* top:0; right:0; bottom:0; left:0 */
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+}
+
+.chart-modal-content {
+  background: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  width: 90%;
+  max-width: 720px;
+  max-height: 80vh;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;          /* ✅ 防止內容溢出框外 */
+}
+
+/* 彈窗標題（如果有用我上一版的 h3） */
+.chart-modal-title {
+  margin: 0 0 12px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #333;
+}
+
+/* 關閉按鈕 */
+.chart-close-btn {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  font-size: 20px;
+}
+
+/* 讓放大版圖表吃滿彈窗內容區 */
+#zoomCanvas {
+  width: 100% !important;
+  height: auto !important;   /* ✅ 保持比例 */
+  max-height: 60vh;          /* ✅ 不要超過視窗高度 */
+  display: block;
+}
+

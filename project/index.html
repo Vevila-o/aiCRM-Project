@@ -129,6 +129,24 @@
     
 
   </script>
+  <!-- 圖表彈窗：放在 body 最後面 -->
+  <div id="chartModal" class="chart-modal hidden">
+    <div class="chart-modal-content">
+      <button class="chart-close-btn">✕</button>
+  
+      <div class="chart-modal-header">
+        <h3 id="chartModalTitle" class="chart-modal-title"></h3>
+        <!-- 放大用的季/年選單（只顯示用，可先設 disabled） -->
+        <select id="chartModalSelector" class="hidden" disabled>
+          <option value="quarter">季</option>
+          <option value="year">年</option>
+        </select>
+      </div>
+  
+      <canvas id="zoomCanvas"></canvas>
+    </div>
+  </div>
+
   
 </body>
 </html>

@@ -1,4 +1,3 @@
-
 // =========================================================
 // 首頁功能邏輯 - 會員查詢
 // =========================================================
@@ -71,7 +70,6 @@ async function checkMemberId() {
     // 存到 sessionStorage，customer.html 會用到
     sessionStorage.setItem('currentMemberId', inputMemberId);
     sessionStorage.setItem('currentMemberData', JSON.stringify(member));
-    
 
   } catch (err) {
     console.error(err);
@@ -97,6 +95,13 @@ function navigateToCustomerDetail() {
 // =========================================================
 // Dashboard 模擬資料 & 初始化
 // =========================================================
+
+// 🔹 新增：圖表相關的全域變數（只用在圖表 & 放大，不動其他邏輯）
+let pieChartRef = null;      // 圓餅圖實例
+let lineChartRef = null;     // 折線圖實例
+let zoomedChart  = null;     // 放大視窗中的圖表
+let dashboardData = null;    // 儀表板資料（折線圖季/年用）
+let lineMode = "quarter";    // 目前折線圖模式
 
 // 模擬從後端抓資料
 async function fetchDashboardData() {
@@ -206,11 +211,14 @@ renderSeg(currentSeg);
 /* ===========================
    折線圖 季 / 年切換
 =========================== */
-let lineChartRef = null;
 
 function renderForecastChart(mode, data) {
   const ctx = document.getElementById("lineChart");
   if (!ctx) return;
+
+  // ✅ 記住目前模式與資料，之後放大 / 切換會用到
+  lineMode = mode;
+  dashboardData = data;
 
   if (lineChartRef) lineChartRef.destroy();
 
@@ -234,10 +242,175 @@ function renderForecastChart(mode, data) {
       }]
     },
     options: {
+      responsive: true,
+      maintainAspectRatio: true,
       scales: { y: { beginAtZero: true } }
     }
   });
 }
+
+// 統一切換季 / 年（卡片 + 放大視窗一起更新）
+function setLineMode(mode) {
+  if (!dashboardData) return;
+
+  const mainSelector  = document.getElementById("forecastSelector");
+  const modalSelector = document.getElementById("chartModalSelector");
+
+  if (mainSelector)  mainSelector.value  = mode;
+  if (modalSelector) modalSelector.value = mode;
+
+  renderForecastChart(mode, dashboardData);
+
+  if (zoomedChart && zoomedChart.config.type === "line" && lineChartRef) {
+    zoomedChart.data    = lineChartRef.data;
+    zoomedChart.options = {
+      ...zoomedChart.options,
+      ...lineChartRef.options
+    };
+    zoomedChart.update();
+  }
+}
+
+// 綁定兩個下拉（卡片上的 + 彈窗裡的）
+function setupLineSelectors() {
+  const mainSelector  = document.getElementById("forecastSelector");
+  const modalSelector = document.getElementById("chartModalSelector");
+
+  if (mainSelector) {
+    mainSelector.addEventListener("change", function () {
+      setLineMode(this.value);
+    });
+  }
+
+  if (modalSelector) {
+    modalSelector.addEventListener("change", function () {
+      setLineMode(this.value);
+    });
+  }
+}
+
+/* ========================
+   圖表彈窗共用邏輯
+======================== */
+
+/**
+ * 開啟彈窗，根據目前的 chart 實例重畫一份放大版
+ */
+function openChartModal(chartInstance, title) {
+  const chartModal    = document.getElementById("chartModal");
+  const zoomCanvas    = document.getElementById("zoomCanvas");
+  const titleEl       = document.getElementById("chartModalTitle");
+  const modalSelector = document.getElementById("chartModalSelector");
+
+  if (!chartModal || !zoomCanvas || !chartInstance) return;
+
+  // 設定彈窗標題文字（顧客分群比例圖 / 顧客消費預測...）
+  if (titleEl) {
+    titleEl.textContent = title || "";
+  }
+
+  // 折線圖放大時：顯示季/年下拉；圓餅圖：隱藏
+  if (modalSelector) {
+    if (chartInstance.config.type === "line") {
+      modalSelector.classList.remove("hidden");
+      modalSelector.disabled = false;
+      modalSelector.value = lineMode;
+    } else {
+      modalSelector.classList.add("hidden");
+      modalSelector.disabled = true;
+    }
+  }
+
+  chartModal.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+
+  // 清掉舊的放大圖
+  if (zoomedChart) {
+    zoomedChart.destroy();
+    zoomedChart = null;
+  }
+
+  const ctx = zoomCanvas.getContext("2d");
+
+  // 維持原本圖表比例
+  const baseOptions = chartInstance.config.options || {};
+  const popupOptions = {
+    ...baseOptions,
+    responsive: true,
+    maintainAspectRatio: true
+  };
+
+  zoomedChart = new Chart(ctx, {
+    type: chartInstance.config.type,
+    data: chartInstance.config.data,
+    options: popupOptions
+  });
+}
+
+
+/**
+ * 關閉彈窗
+ */
+function closeChartModal() {
+  const chartModal = document.getElementById("chartModal");
+  if (!chartModal) return;
+
+  chartModal.classList.add("hidden");
+  document.body.style.overflow = "";
+
+  if (zoomedChart) {
+    zoomedChart.destroy();
+    zoomedChart = null;
+  }
+}
+
+/**
+ * 綁定彈窗關閉按鈕、背景點擊關閉
+ */
+function setupModalEvents() {
+  const chartModal = document.getElementById("chartModal");
+  if (!chartModal) return;
+
+  const chartCloseBtn = chartModal.querySelector(".chart-close-btn");
+
+  // 按 ✕ 關閉
+  if (chartCloseBtn) {
+    chartCloseBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      closeChartModal();
+    });
+  }
+
+  // 點黑色背景關閉（如果你不想要，可以把這段註解掉）
+  chartModal.addEventListener("click", (e) => {
+    if (e.target === chartModal) {
+      closeChartModal();
+    }
+  });
+}
+
+/**
+ * 給卡片用：點某個卡片 → 取得圖表實例 → 開彈窗
+ * getChartInstance：一個回傳對應 Chart 實例的 function
+ */
+function enableChartPopup(boxId, getChartInstance) {
+  const box = document.getElementById(boxId);
+  if (!box) return;
+
+  box.addEventListener("click", (e) => {
+    e.stopPropagation();
+
+    const chartInstance = getChartInstance && getChartInstance();
+    if (!chartInstance) return;
+
+    // 從卡片裡抓標題文字（顧客分群比例圖 / 顧客消費預測）
+    const titleNode = box.querySelector("h3");
+    const titleText = titleNode ? titleNode.textContent.trim() : "";
+
+    openChartModal(chartInstance, titleText);
+  });
+}
+
 
 /* ===========================
    Dashboard 初始化（合併版本）
@@ -256,10 +429,10 @@ async function initDashboard() {
   if (vipDom)        vipDom.textContent        = `${(data.vipRatio * 100).toFixed(0)}%`;
   if (totalDom)      totalDom.textContent      = `${data.totalCustomers} 人`;
 
-  // 顧客分群比例圖（圓餅圖）
+  // 顧客分群比例圖（圓餅圖）── 改成有 ref，方便放大用
   const pieCtx = document.getElementById("pieChart");
   if (pieCtx) {
-    new Chart(pieCtx, {
+    pieChartRef = new Chart(pieCtx, {
       type: "pie",
       data: {
         labels: ["高價值顧客", "一般顧客", "低價值顧客", "新顧客"],
@@ -267,62 +440,57 @@ async function initDashboard() {
           data: data.segments,
           backgroundColor: ["#33b7e1", "#7cd1f9", "#bce4ff", "#e0f7ff"],
         }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        aspectRatio: 2,   // 讓圖在 320x360 的卡片裡完整顯示
+        layout: {
+          padding: 10
+        },
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: {
+              boxWidth: 12,
+              boxHeight: 12
+            }
+          }
+        }
       }
     });
+
+    // 點圓餅圖卡片 → 彈出視窗顯示放大版圓餅圖
+    enableChartPopup("pieBox", () => pieChartRef);
   }
 
   // 折線圖預設載入「季」
   renderForecastChart("quarter", data);
 
-  // 綁定季 / 年切換
+  // 點折線圖卡片 → 彈出視窗顯示放大版折線圖
+  enableChartPopup("lineBox", () => lineChartRef);
+
+  // 初始化卡片上的季 / 年下拉（只設定預設值，事件綁在 setupLineSelectors 裡）
   const selector = document.getElementById("forecastSelector");
   if (selector) {
-    selector.addEventListener("change", function () {
-      renderForecastChart(this.value, data);
-    });
+    selector.value = lineMode;
   }
 }
 
-/* ================================
-   點擊卡片：置中放大 / 再點縮回
-================================ */
-function enableClickZoom(boxId) {
-  const box = document.getElementById(boxId);
-  if (!box) return;
+/* ===========================
+   DOM 載入完成後再初始化
+=========================== */
 
-  box.addEventListener("click", function (e) {
-    // 避免冒泡到 document 的關閉事件
-    e.stopPropagation();
-    const isZoomed = box.classList.toggle("is-zoomed");
-
-    // 如果放大中，就鎖住 body 捲動（可選）
-    if (isZoomed) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-  });
-}
-
-// 點擊畫面其他地方，關掉所有放大的卡片
-document.addEventListener("click", () => {
-  const zoomedCards = document.querySelectorAll(".chart-zoom.is-zoomed");
-  if (zoomedCards.length === 0) return;
-
-  zoomedCards.forEach(card => card.classList.remove("is-zoomed"));
-  document.body.style.overflow = "";
-});
-
-// 啟用在三個卡片上
-enableClickZoom("pieBox");
-enableClickZoom("lineBox");
-enableClickZoom("memberBox");
-
-// 頁面載入完成後，先跑一次 checkMemberId()，顯示「請輸入會員編號...」
 document.addEventListener('DOMContentLoaded', () => {
+  // 一進頁面先顯示「請輸入會員編號...」
   checkMemberId();
+
+  // 綁定彈窗關閉事件（叉叉/背景）
+  setupModalEvents();
+
+  // 綁定季 / 年切換（卡片 + 放大視窗）
+  setupLineSelectors();
+
+  // 🚀 啟動儀表板（畫圖 & 綁定卡片點擊）
+  initDashboard();
 });
-
-
-// 🚀 啟動儀表板
-initDashboard();
