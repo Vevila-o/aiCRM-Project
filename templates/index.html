@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>行銷儀表板首頁</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <header>
+    <nav class="navbar">
+      <ul>
+        <li><a href="{% url 'index'%}">首頁</a></li>
+        <li><a href="history.html">歷史</a></li>
+        <li><a href="{% url 'logout' %}">登出</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main class="dashboard">
+    <section class="stats">
+      <div class="card green">
+        <p>回購率</p>
+        <h2 id="repurchaseRate">30%</h2>
+      </div>
+      <div class="card red">
+        <p>流失率</p>
+        <h2 id="churnRate">10%</h2>
+      </div>
+      <div class="card blue">
+        <p>高價值顧客佔比</p>
+        <h2 id="vipRatio">30%</h2>
+      </div>
+      <div class="card gray">
+        <p>總顧客數</p>
+        <h2 id="totalCustomers">8740 人</h2>
+      </div>
+    </section>
+
+    <section class="customer-check">
+      <div class="input-result-card">
+        <input type="text" id="memberInput" placeholder="請輸入會員編號..." />
+        <div id="memberTypeDisplay" class="result">
+          此顧客為 <span id="customerType" class="customer-type"></span>
+          <button id="detailBtn" class="learn-more-btn hidden" onclick="navigateToCustomerDetail()">了解更多</button>
+       </div>
+      </div>
+    </section>
+
+    <section class="charts">
+      <div class="chart-card">
+        <h3>顧客分群比例圖</h3>
+        <canvas id="pieChart"></canvas>
+      </div>
+
+      <div class="chart-card">
+        <h3>顧客消費預測</h3>
+        <canvas id="lineChart"></canvas>
+      </div>
+    </section>
+
+    <section class="ai-section" id="aiSection">
+      <div class="ai-header">
+        <h3>AI 行銷建議</h3>
+      </div>
+
+      <!-- 客群切換 -->
+      <div class="seg-tabs" role="tablist" aria-label="客群篩選">
+        <button class="seg-tab is-active" data-seg="high" role="tab" aria-selected="true">高價值顧客</button>
+        <button class="seg-tab" data-seg="risk" role="tab" aria-selected="false">高風險顧客</button>
+        <button class="seg-tab" data-seg="new" role="tab" aria-selected="false">新進顧客</button>
+      </div>
+
+      <!-- 建議內容（會動畫切換） -->
+      <div class="seg-panel" id="segPanel" aria-live="polite">
+        <!-- JS 會把對應建議渲染到這裡 -->
+      </div>
+      <button class="ai-btn" id="seeMoreBtn">查看更多...</button>
+    </section>
+  </main>
+
+  <script src="../static/main.js"></script>
+</body>
+</html>
