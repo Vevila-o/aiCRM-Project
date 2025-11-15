@@ -1,0 +1,138 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>會員詳細資料</title>
+
+    <!-- 先載入共用 style，再載入此頁專用 customer.css -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/customer.css' %}">
+</head>
+<body>
+    <!-- ✅ 用跟 index.html 一樣的 header 結構 -->
+    <header>
+        <nav class="navbar">
+            <ul>
+                <li><a href="/index/">首頁</a></li>
+                <li><a href="{% url 'history' %}">歷史</a></li>
+                <li><a href="/">登出</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <div class="container">
+        <h2 class="section-title">個別顧客資料</h2>
+        <div class="main-content">
+            <div class="customer-details-header">
+                <span class="detail-tag">
+                    會員編號:<span>{{ member.customerID }}</span>
+                </span>
+                
+                <span class="detail-tag">
+                    顧客姓名:<span>{{ member.customerName }}</span>
+                </span>
+                
+                <span class="detail-tag">
+                    性別:<span>{{ member.gender }}</span>
+                </span>
+                
+                <span class="detail-tag">
+                    地區:<span>{{ member.customerRegion }}</span>
+                </span>
+                
+            </div>
+
+            <div class="customer-value-box">
+                此顧客為 <span class="highlight-type">{{ member.memberType }}</span><br>
+                加入日期：<span>{{ member.customerJoinDay }}</span>
+                累計消費金額 <span class="highlight-spending">{{ member.totalSpending }}</span> 元
+            </div>
+            
+            <!-- 🔽 排序選單 -->
+            <div class="consumption-toolbar">
+                <div class="toolbar-spacer"></div>   <!-- 左邊空白，用來撐版面 -->
+                
+                <h3 class="toolbar-title">消費紀錄</h3>  <!-- 中間要置中的標題 -->
+                
+                <div class="toolbar-sort">
+                    <select id="sortOrder">
+                        <option value="desc">日期：近 → 遠</option>
+                        <option value="asc">日期：遠 → 近</option>
+                    </select>
+                </div>
+            </div>
+            
+            
+            <!-- 🔽 所有消費紀錄的容器 -->
+            <div id="consumptionList">
+                {% for c in member.consumptions %}
+                    <div class="consumption-record" data-date="{{ c.date }}">
+                        <p class="record-date">消費日期:
+                            <span>{{ c.date }}</span>
+                        </p>
+                        <div class="record-items">
+                            <h3>消費品項</h3>
+                            <ul>
+                                {% for item in c.items %}
+                                    <li>{{ item }}</li>
+                                {% endfor %}
+                            </ul>
+                            <p class="total-amount">
+                                金額:<span>{{ c.amount }}</span>元
+                            </p>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            
+        </div>
+    </div>
+
+    <script src="{% static 'js/customer.js' %}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const list = document.getElementById('consumptionList');
+            const records = Array.from(list.querySelectorAll('.consumption-record'));
+            const sortSelect = document.getElementById('sortOrder');
+        
+            // 預設資料順序（先記起來）
+            const originalOrder = [...records];
+        
+            function render(order) {
+                let ordered;
+        
+                if (order === 'asc') {
+                    // 🔹 日期遠 → 近：按 data-date 由小到大排
+                    ordered = [...records].sort((a, b) => {
+                        const da = a.dataset.date;
+                        const db = b.dataset.date;
+                        return da.localeCompare(db);   // 因為是 YYYY-MM-DD，字串也可排序
+                    });
+                } else {
+                    // 🔹 日期近 → 遠：反過來
+                    ordered = [...records].sort((a, b) => {
+                        const da = a.dataset.date;
+                        const db = b.dataset.date;
+                        return db.localeCompare(da);
+                    });
+                }
+        
+                // 清空 & 重新插入
+                list.innerHTML = '';
+                ordered.forEach(el => list.appendChild(el));
+            }
+        
+            // 初次載入 → 近 → 遠
+            render('desc');
+        
+            // 下拉選單改變時 → 重新排序
+            sortSelect.addEventListener('change', (e) => {
+                render(e.target.value);
+            });
+        });
+        </script>
+        
+</body>
+</html>

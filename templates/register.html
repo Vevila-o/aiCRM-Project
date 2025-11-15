@@ -1,0 +1,65 @@
+
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>註冊帳號</title>
+    <link rel="stylesheet" href="{% static 'css/login.css' %}">
+</head>
+<body>
+    <div class="login-container">
+        <div class="gradient-border-box">
+            <div class="login-box">
+                <h1>註冊</h1>
+
+                <form method="post">
+                    {% csrf_token %}
+
+                    <div class="input-group">
+                        <label for="employeeID">帳號</label>
+                        <input type="text" id="employeeID" name="employeeID" placeholder="請輸入員工編號">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="username">名稱</label>
+                        <input type="text" id="username" name="username" placeholder="請輸入姓名">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="password">密碼</label>
+                        <input type="password" id="password" name="password" placeholder="請輸入密碼">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="password_confirm">確認密碼</label>
+                        <input type="password" id="password_confirm" name="password_confirm" placeholder="再輸入一次密碼">
+                    </div>
+
+                    {% if error %}
+                      <p class="message" style="color:red;">{{ error }}</p>
+                    {% endif %}
+
+                    {% if success %}
+                      <p class="message" style="color:green;">{{ success_message }}</p>
+                    {% endif %}
+
+                    <button type="submit" class="login-button">送出註冊</button>
+                </form>
+
+                <p style="margin-top: 10px;">
+                    已經有帳號了？<a href="{% url 'login' %}">回登入頁</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+{% if success %}
+<script>
+  setTimeout(function () {
+    window.location.href = "{{ redirect_url }}";
+  }, 2000);
+</script>
+{% endif %}
+</html>

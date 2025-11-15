@@ -86,7 +86,10 @@ password: Vivi4519345
 //views.py中增加import
 >>from .services.(服務.py) import 服務裡的function
 
-11/13 catboost
+11/13 
+catboost
 ai完成個別流失機率預測
-前端加入index
+前端匯入
 
+11/14
+前端修正、後端rfm、登入控制、ai訊問框

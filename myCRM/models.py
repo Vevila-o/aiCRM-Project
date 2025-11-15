@@ -52,3 +52,31 @@ class Customer(models.Model):
     class Meta:
         managed = False
         db_table = 'customer'
+        
+        
+##RFM分數表
+class RFMscore(models.Model):
+    customerID = models.IntegerField(db_column='customerID', primary_key=True)  # 顧客ID
+    rScore = models.IntegerField(db_column='rScore', blank=True, null=True)  # Recency 分數
+    fScore = models.IntegerField(db_column='fScore', blank=True, null=True)  # Frequency 分數
+    mScore = models.IntegerField(db_column='mScore', blank=True, null=True)  # Monetary 分數
+    RFMscore = models.IntegerField(db_column='RFMscore', blank=True, null=True)  # 總 RFM 分數
+    categoryID = models.IntegerField(db_column='categoryID', blank=True, null=True)  # 商品類別ID
+    RFMupdate = models.DateTimeField(db_column='RFMupdate', blank=True, null=True)  # 更新時間
+
+    class Meta:
+        managed = False
+        db_table = 'rfm_score'   
+        
+        
+## 員工表
+
+class User(models.Model):
+    userid = models.IntegerField(db_column='userID', primary_key=True)  # Field name made lowercase.
+    username = models.CharField(db_column='userName', max_length=45, blank=True, null=True)  # Field name made lowercase.
+    employeeid = models.IntegerField(db_column='employeeID', blank=True, null=True)  # Field name made lowercase.
+    password = models.CharField(max_length=45, blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'user'

@@ -1,0 +1,25 @@
+<h1>RFM Results</h1>
+<table border="1">
+    <tr>
+        <th>Customer ID</th>
+        <th>RFM Score</th>
+        <th>Recency Score</th>
+        <th>Frequency Score</th>
+        <th>Monetary Score</th>
+        <th>Customer Category</th>
+        <th>RFMScore UpdateTime</th>
+
+    </tr>
+    {% for transaction in transactions %}
+    <tr>
+        <td>{{ transaction.customerID }}</td>
+        <td>{{ transaction.RFMscore }}</td>
+        <td>{{ transaction.rScore }}</td>
+        <td>{{ transaction.fScore }}</td> 
+        <td>{{ transaction.mScore }}</td>
+        <td>{{ transaction.categoryID}}</td>
+        <td>{{ transaction.RFMupdate }}</td>
+    </tr>
+    {% endfor %}
+</table>
+

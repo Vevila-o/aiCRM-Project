@@ -23,19 +23,23 @@ from sklearn.metrics import (
     recall_score,
 )
 
+##工具
 
+# 將字串轉為日期 'date' 物件
 def _parse_as_of(as_of: Optional[str]) -> date:
-    if not as_of:
+    if not as_of:  # 如果資料中沒有提供日期就選用今天
         return date.today()
     # 支援 yyyy-mm-dd
     return datetime.strptime(as_of, "%Y-%m-%d").date()
 
 
+# 模型檔案的儲存位置
 def _model_path() -> str:
     base_dir = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base_dir, "churn_model.cbm")
 
 
+# 建立 RFM 特徵
 def _build_rfm(as_of: Optional[str] = None, window_days: int = 365) -> List[Dict[str, Any]]:
     """
     以交易主檔計算每位顧客 RFM：
@@ -44,29 +48,51 @@ def _build_rfm(as_of: Optional[str] = None, window_days: int = 365) -> List[Dict
     - monetary: 視窗內交易金額總和
     僅納入有歷史交易紀錄的客戶。
     """
+    # 交易天數解釋
+    """ 
+    as_of_date = 想要資料計算到哪一天，此日期為今天(ex:紀錄日期今天為11/13)
+    window_days = 是過去多少天的交易紀錄(ex:預設為365天，代表從11/13往前推365天到11/14的交易紀錄都納入計算)，
+                  目的是避免顧客太久以前的資料加進來計算 
+    as_of_date - timedelta(days=window_days) = 365天前的日期
+    ex : 2025/11/13 - 365天 = 2024/11/14
+    """
     as_of_date = _parse_as_of(as_of)
-    window_start = as_of_date - timedelta(days=window_days)
+    window_start = as_of_date - timedelta(days=window_days) #windows_days 代表過去到今天的全部天數
 
-    # 最近交易日（不限視窗）
+
+# 最近交易日
+    """ 
+    這像是sql的group by 功能，找出每個customer的最後交易日期
+    SQL:
+        SELECT customerid, MAX(transdate) AS last_date
+        FROM Transaction
+        WHERE transdate <= as_of_date
+        GROUP BY customerid;
+    """
     last_dates = (
         Transaction.objects
-        .filter(transdate__lte=as_of_date)
+        .filter(transdate__lte=as_of_date) # 交易日期 = 視窗起始日期
         .values("customerid")
         .annotate(last_date=Max("transdate"))
     )
+   
 
-    last_date_by_cust: Dict[int, date] = {}
+    last_date_by_cust: Dict[int, date] = {} # 剛剛的尋找結果會放入在這個字典裡面
     for row in last_dates:
         cid = row.get("customerid")
         if cid is None:
             continue
         last_date_by_cust[int(cid)] = row.get("last_date")
 
-    # 視窗內的 frequency / monetary
+# 視窗內的 frequency / monetary
     window_stats = (
         Transaction.objects
-        .filter(transdate__gte=window_start, transdate__lte=as_of_date)
-        .values("customerid")
+        # filter 只抓取式窗範圍內的交易
+          # transdate__gte=window_start 交易日期 = 視窗起始日期
+          # transdate__lte=as_of_date 交易日期 = 當天(前面設定為今天)
+        .filter(transdate__gte=window_start, transdate__lte=as_of_date) 
+        .values("customerid") # 之後只關心customerid此欄，意思為要以customerid為單位做group by
+        # annotate = 幫每個customerid計算剩下欄位的次數跟總和，這邊要計算F M
         .annotate(freq=Count("transactionid"), money=Sum("totalprice"))
     )
 

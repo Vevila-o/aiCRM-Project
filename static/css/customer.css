@@ -1,0 +1,260 @@
+/* ---------------------------------------------------- */
+/* --- 共通基礎與布局樣式 --- */
+/* ---------------------------------------------------- */
+body {
+    font-family: Arial, sans-serif, "Microsoft JhengHei", "微軟正黑體";
+    background-color: #f8f9fa; /* 淺灰色背景 */
+    margin: 0;
+    font-weight: bold;
+}
+header{
+    background-color:#e5e9ef;
+    padding:28px 0;
+  }
+
+.container h2{
+text-align: center;
+}
+  .navbar ul{
+    display:flex;
+    justify-content:center;
+    list-style:none;
+    padding:0;
+    margin:0;
+  }
+  .navbar li{
+    margin:0 40px;
+    font-weight:bold;
+    font-size:19px;
+    cursor:pointer;
+  }
+  .navbar li.active{
+    color:#333;
+    border-bottom:3px solid #333;
+  }
+  .navbar a{
+    text-decoration:none;
+    color:#333;
+  }
+
+
+/* --- 頂部導航欄 (共用) --- */
+.top-nav {
+    display: flex;
+    background-color: #e9ecef; /* 淺灰背景 */
+    padding: 15px 20px;
+    border-bottom: 1px solid #dee2e6;
+    font-size: 16px;
+    color: #495057;
+}
+
+.nav-item {
+    margin-right: 30px;
+    cursor: pointer;
+    padding: 5px 0;
+    position: relative;
+    transition: color 0.3s;
+}
+
+.nav-item:hover {
+    color: #007bff;
+}
+
+.nav-item.active {
+    font-weight: bold;
+    color: #000;
+}
+
+.nav-item.active::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: -5px;
+    width: 100%;
+    height: 3px;
+    background-color: #007bff;
+    border-radius: 2px;
+}
+
+/* --- 主要內容區塊 (共用) --- */
+.main-content {
+    width: 90%;
+    max-width: 1200px;
+    background-color: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    margin: 0px auto;
+    overflow: hidden; 
+    text-align: center;
+    padding: 30px;
+}
+
+
+/* ---------------------------------------------------- */
+/* --- 客戶詳情頁面專屬樣式 (customer.html) --- */
+/* ---------------------------------------------------- */
+
+.section-title {
+    font-size: 28px;
+    color: #333;
+    margin: 30px auto 40px;
+    border-bottom: 3px solid #007bff;
+    padding-bottom: 5px;
+    display: block;
+    width: fit-content;
+    text-align: center;
+}
+
+
+/* --- 顧客基本資料標籤區 --- */
+.customer-details-header {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap; 
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.detail-tag {
+    background-color: #e0f2f7; /* 淺藍背景 */
+    border-radius: 20px;
+    padding: 8px 18px;
+    font-size: 15px;
+    color: #007bff;
+    font-weight: bold;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.detail-tag span {
+    color: #333;
+    font-weight: normal;
+    margin-left: 5px;
+}
+
+/* --- 顧客價值/總結區塊 --- */
+.customer-value-box {
+    background: linear-gradient(90deg, #d4edda, #c3e6cb); /* 淺綠漸層，類似截圖中的強調區塊 */
+    border-radius: 10px;
+    padding: 30px;
+    text-align: center;
+    font-size: 18px;
+    color: #28a745; 
+    margin-bottom: 30px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+}
+
+.highlight-type{
+    font-weight: 700;
+}
+
+.highlight-type.vip {
+    color:#33b7e1 ; 
+    font-size: 40px;
+    font-weight: bolder;
+}
+
+.highlight-type.risk {
+    color: #ff5c5c; 
+    font-size: 40px;
+}
+
+.highlight-type.new {
+    color: #32c48d; 
+    font-size: 40px;
+}
+
+.customer-value-box{
+    background: linear-gradient(90deg, rgba(0,180,216,0.4), rgba(72,202,20,0.4));
+    color: #000;
+    font-weight: bold;
+    font-size: 20px;
+}
+
+.highlight-spending {
+    font-size: 28px;
+    font-weight: 600;
+    color: #1a6d36;
+    margin-left: 10px;
+}
+
+.consumption-toolbar {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+/* 左右兩側容器都佔一樣寬 */
+.toolbar-spacer,
+.toolbar-sort {
+    flex: 1;
+}
+
+/* 右邊選單靠右 */
+.toolbar-sort {
+    text-align: right;
+}
+
+/* 中間標題 */
+.toolbar-title {
+    margin: 0;
+    font-size: 25px;
+    font-weight: bold;
+    text-align: center;
+}
+
+
+/* --- 消費紀錄區塊 --- */
+.consumption-record {
+    background-color: #f8f9fa;
+    border-radius: 10px;
+    padding: 25px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.record-date {
+    font-size: 15px;
+    color: #6c757d;
+    margin-bottom: 20px;
+    text-align: right; /* 讓日期靠右 */
+}
+
+.record-items h3 {
+    font-size: 20px;
+    color: #333;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+    margin-top: 0;
+    margin-bottom: 15px;
+}
+
+.record-items ul {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 20px 0;
+}
+
+.record-items li {
+    font-size: 16px;
+    color: #555;
+    padding: 5px 0;
+    border-bottom: 1px dotted #eee;
+    display: flex;
+    justify-content: space-between; /* 實務中可能用來放價格 */
+}
+
+.record-items li:last-child {
+    border-bottom: none;
+}
+
+.total-amount {
+    text-align: right;
+    font-size: 20px;
+    font-weight: bold;
+    color: #007bff;
+    padding-top: 10px;
+    border-top: 2px solid #007bff; /* 總金額強調線 */
+}
+
+.total-amount span {
+    margin-left: 10px;
+}
