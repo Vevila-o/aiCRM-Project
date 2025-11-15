@@ -19,8 +19,9 @@ from django.db.models import Count, Sum, Max,Q
 from datetime import datetime, timedelta
 from .services.login import authenticate_user
 from .services.login import create_user
+from .services.customerActivityRate import get_customer_growth
 from .services.rfm_count import recalc_rfm_scores, get_rfm_category_distribution
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_GET
 from .services.basicRate import calculate_CRR, calculate_RPR, calculate_vip_ratio, calculate_allCus
 
 
@@ -157,10 +158,10 @@ def calculate_crr(request):
   return redirect('index')
 
 
-# 本月顧客流失率
+# 本月顧客回購率
 def calculate_rpr(request):
   """
-  呼叫 service 計算本月顧客流失率，實際顯示交給首頁 index_view 處理。
+  呼叫 service 計算本月顧客回購率，實際顯示交給首頁 index_view 處理。
   """
   return redirect('index')
 
@@ -234,6 +235,24 @@ def churn_train(request):
     return JsonResponse(info, json_dumps_params={"ensure_ascii": False})
   except Exception as e:
     return JsonResponse({"error": str(e)}, status=500)
+
+# 顧客成長率
+@require_GET
+def customer_growth_api(request):
+  raw_period = (request.GET.get("period") or "month").lower()
+  period = raw_period if raw_period in {"month", "quarter"} else "month"
+  default_points = 12 if period == "month" else 8
+  try:
+    points = int(request.GET.get("points", default_points))
+  except (TypeError, ValueError):
+    points = default_points
+
+  max_points = 24 if period == "month" else 12
+  points = max(1, min(points, max_points))
+  data = get_customer_growth(period=period, points=points)
+  return JsonResponse(data, json_dumps_params={"ensure_ascii": False})
+
+
 
 
 # =============首頁測試檔案
@@ -446,6 +465,8 @@ def register_view(request):
     'username': user.username,
   }
   return render(request, 'register.html', context)
+
+
 
 
 ## 顧客活躍度

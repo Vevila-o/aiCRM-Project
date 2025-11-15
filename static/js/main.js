@@ -5,7 +5,7 @@
 /**
  * 根據輸入的會員編號檢查並顯示會員類型 (綁定到 input 的 oninput 事件)
  */
-// 🔄 改為從後端 API 查詢會員
+// 改為從後端 API 查詢會員
 async function checkMemberId() {
   const memberIdInput     = document.getElementById('memberInput');
   const memberTypeDisplay = document.getElementById('memberTypeDisplay');
@@ -96,7 +96,7 @@ function navigateToCustomerDetail() {
 // Dashboard 模擬資料 & 初始化
 // =========================================================
 
-// 🔹 新增：圖表相關的全域變數（只用在圖表 & 放大，不動其他邏輯）
+//  新增：圖表相關的全域變數（只用在圖表 & 放大，不動其他邏輯）
 let pieChartRef = null;      // 圓餅圖實例
 let lineChartRef = null;     // 折線圖實例
 let zoomedChart  = null;     // 放大視窗中的圖表
@@ -210,6 +210,95 @@ tabs.forEach(btn => {
 
 // 初始載入 AI 區塊
 renderSeg(currentSeg);
+(function () {
+  let crrChartRef = null;
+
+
+
+// 顧客成長率折線圖相關
+  async function fetchGrowth(period = "quarter", points) {
+    // 預設期數：季=8、月=12（可自行調整）
+    const n = Number(points ?? (period === "quarter" ? 8 : 12));
+    const url = `/api/customer-growth/?period=${period}&points=${n}`;
+    const resp = await fetch(url, { headers: { "Accept": "application/json" } });
+    if (!resp.ok) throw new Error(`customer-growth API ${resp.status}`);
+    return resp.json(); // { period, labels, growth_rates, new_customers, totals }
+  }
+
+  function renderGrowthChart(payload) {
+    const canvas = document.getElementById("lineChart");
+    if (!canvas) return;
+
+    // 銷毀舊圖
+    if (crrChartRef) { crrChartRef.destroy(); crrChartRef = null; }
+
+    const labels = payload.labels || [];
+    const values = payload.growth_rates || []; // 已是百分比數值
+
+    crrChartRef = new Chart(canvas.getContext("2d"), {
+      type: "line",
+      data: {
+        labels,
+        datasets: [{
+          label: "顧客成長率（%）",
+          data: values,
+          borderWidth: 2,
+          tension: 0.25,
+          pointRadius: 3
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            ticks: { callback: v => `${v}%` },
+            title: { display: true, text: "成長率（%）" }
+          },
+          x: { title: { display: true, text: "期間" } }
+        },
+        plugins: {
+          legend: { display: true },
+          tooltip: { callbacks: { label: ctx => `${ctx.parsed.y.toFixed(2)}%` } }
+        }
+      }
+    });
+
+    // 卡片右下角的小字說明（若未放入可忽略）
+    const meta = document.getElementById("growthMeta");
+    if (meta && labels.length) {
+      const i = labels.length - 1;
+      const rate  = (payload.growth_rates?.[i] ?? 0).toFixed(2);
+      const nnew  = payload.new_customers?.[i] ?? 0;
+      const total = payload.totals?.[i] ?? 0;
+      meta.textContent = `最後一期 ${labels[i]}：成長率 ${rate}%、新客 ${nnew}、累積顧客 ${total}`;
+    }
+  }
+
+  async function loadGrowthFromUI() {
+    const sel = document.getElementById("forecastSelector");
+    const period = (sel?.value || "quarter"); // 你的 HTML 預設是「季」
+    const data = await fetchGrowth(period);
+    renderGrowthChart(data);
+  }
+
+  function setupGrowthUI() {
+    const sel = document.getElementById("forecastSelector");
+    if (sel) sel.addEventListener("change", loadGrowthFromUI);
+
+    // 若你的專案已有「卡片→彈窗放大」工具，存在就串；否則忽略
+    if (typeof enableChartPopup === "function") {
+      enableChartPopup("lineBox", () => crrChartRef);
+    }
+  }
+
+  // 不動原本 DOMContentLoaded；這裡加一個新的監聽器
+  document.addEventListener("DOMContentLoaded", () => {
+    setupGrowthUI();
+    loadGrowthFromUI().catch(err => console.warn("[growth] init failed:", err));
+  });
+})();
+
 
 /* ===========================
    折線圖 季 / 年切換
@@ -238,7 +327,7 @@ function renderForecastChart(mode, data) {
     data: {
       labels,
       datasets: [{
-        label: mode === "quarter" ? "季預測" : "年預測",
+        label: mode === "quarter" ? "季預測" : "月預測",
         data: values,
         borderColor: "#33b7e1",
         tension: 0.3
