@@ -13,14 +13,28 @@
   <header>
     <nav class="navbar">
       <ul>
-        <li class="/index/">首頁</li>
+        <li><a href="{% url 'index' %}">首頁</a></li>
         <li><a href="{% url 'history' %}">歷史</a></li>
         <li><a href="{% url 'logout' %}">登出</a></li>
+        <li>
+          <form method="post" action="{% url 'rfm_update' %}" style="display: inline; margin: 0; padding: 0;">
+            {% csrf_token %}
+            <button type="submit" class="ai-btn">更新顧客紀錄</button>
+          </form>
+        </li>
       </ul>
     </nav>
   </header>
 
   <main class="dashboard">
+    {% if messages %}
+    <div class="alert-panel">
+      {% for message in messages %}
+      <div class="alert {{ message.tags }}">{{ message }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    
     <section class="stats">
       <div class="card green">
         <b style="font-size: 20px;">回購率</b>

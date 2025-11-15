@@ -24,30 +24,31 @@
 
     <div class="container">
         <h2 class="section-title">個別顧客資料</h2>
+        {% if member %}
         <div class="main-content">
             <div class="customer-details-header">
                 <span class="detail-tag">
-                    會員編號:<span>{{ member.customerID }}</span>
+                    會員編號:<span>{{ member.customerID|default:"--" }}</span>
                 </span>
                 
                 <span class="detail-tag">
-                    顧客姓名:<span>{{ member.customerName }}</span>
+                    顧客姓名:<span>{{ member.customerName|default:"--" }}</span>
                 </span>
                 
                 <span class="detail-tag">
-                    性別:<span>{{ member.gender }}</span>
+                    性別:<span>{{ member.gender|default:"--" }}</span>
                 </span>
                 
                 <span class="detail-tag">
-                    地區:<span>{{ member.customerRegion }}</span>
+                    地區:<span>{{ member.customerRegion|default:"--" }}</span>
                 </span>
                 
             </div>
 
             <div class="customer-value-box">
-                此顧客為 <span class="highlight-type">{{ member.memberType }}</span><br>
-                加入日期：<span>{{ member.customerJoinDay }}</span>
-                累計消費金額 <span class="highlight-spending">{{ member.totalSpending }}</span> 元
+                此顧客為 <span class="highlight-type">{{ member.memberType|default:"未分級" }}</span><br>
+                加入日期：<span>{{ member.customerJoinDay|default:"--" }}</span>
+                累計消費金額 <span class="highlight-spending">{{ member.totalSpending|default:"0" }}</span> 元
             </div>
             
             <!-- 🔽 排序選單 -->
@@ -67,10 +68,11 @@
             
             <!-- 🔽 所有消費紀錄的容器 -->
             <div id="consumptionList">
+                {% if member.consumptions %}
                 {% for c in member.consumptions %}
                     <div class="consumption-record" data-date="{{ c.date }}">
                         <p class="record-date">消費日期:
-                            <span>{{ c.date }}</span>
+                            <span>{{ c.date|default:"--" }}</span>
                         </p>
                         <div class="record-items">
                             <h3>消費品項</h3>
@@ -80,22 +82,36 @@
                                 {% endfor %}
                             </ul>
                             <p class="total-amount">
-                                金額:<span>{{ c.amount }}</span>元
+                                金額:<span>{{ c.amount|default:"0" }}</span>元
                             </p>
                         </div>
                     </div>
                 {% endfor %}
+                {% else %}
+                    <p class="empty-state">暫無消費紀錄</p>
+                {% endif %}
             </div>
             
         </div>
+        {% else %}
+        <div class="main-content">
+            <p class="empty-state">查無顧客資料，請確認會員編號或重新搜尋。</p>
+        </div>
+        {% endif %}
     </div>
 
     <script src="{% static 'js/customer.js' %}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const list = document.getElementById('consumptionList');
-            const records = Array.from(list.querySelectorAll('.consumption-record'));
             const sortSelect = document.getElementById('sortOrder');
+            if (!list || !sortSelect) {
+                return;
+            }
+            const records = Array.from(list.querySelectorAll('.consumption-record'));
+            if (!records.length) {
+                return;
+            }
         
             // 預設資料順序（先記起來）
             const originalOrder = [...records];

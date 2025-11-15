@@ -1,30 +1,30 @@
 ﻿from __future__ import annotations
 import json
+from collections import defaultdict
 from django.http import HttpResponse, JsonResponse
+from django.contrib import messages
 from .services.test import test
 from .services.churn_service import predict_churn, train_churn_model
 from django.shortcuts import render, redirect
 from django.urls import reverse
-from myCRM.models import Transaction, RFMscore, Customer
+from myCRM.models import (
+  Transaction,
+  TransactionDetail,
+  Product,
+  RFMscore,
+  Customer,
+  CustomerCategory,
+)
 from django.db.models import Count, Sum, Max
 from datetime import datetime, timedelta
 from .services.login import authenticate_user
 from .services.login import create_user
+from .services.rfm_count import recalc_rfm_scores
+from django.views.decorators.http import require_POST
 
-#登入相關
 
 
 # Create your views here.
-#'''
-# 測試檔案
-# def test_test(requset):
-#   result = test()
-#   return HttpResponse(result)
-# 
-# '''
-
-
-
 
 #首頁
 def index_view(request):
@@ -34,12 +34,29 @@ def index_view(request):
 
 
 
-  """顯示歷史頁面（需登入）。"""
+# 歷史頁面
 def history_view(request):
 
   if not request.session.get('user_id'):
     return redirect('login')
   return render(request, 'history.html', {'username': request.session.get('username')})
+
+
+# rfm分數計算
+def calculate_rfm(request):
+  """
+  呼叫 service 重新計算 RFM，然後把結果丟到 rfm.html 顯示。
+  """
+  transactions = recalc_rfm_scores()
+  return render(request, 'rfm.html', {'transactions': transactions})
+
+
+## 測試流失圖
+def churn_chart(request):
+  """回傳一個 HTML 頁面，頁面會使用 Chart.js 呼叫 `/churn/` API 並繪製風險排行榜圖表。"""
+  # 可接受 query params 並直接傳給 API
+  return render(request, 'churn_chart.html')
+
 
 
 ## =============流失預測相關API=================
@@ -117,140 +134,108 @@ def customer_page(request):
     if not member_id:
         return redirect("index")
 
-    base = TEST_MEMBERS.get(member_id)
-    if not base:
+    try:
+        member_id_int = int(member_id)
+    except ValueError:
         return render(request, "customer.html", {"member": None})
 
+    try:
+        customer = Customer.objects.get(customerid=member_id_int)
+    except Customer.DoesNotExist:
+        return render(request, "customer.html", {"member": None})
+
+    category_name = "未分級"
+    if customer.categoryid is not None:
+        category = CustomerCategory.objects.filter(categoryid=customer.categoryid).first()
+        if category and category.customercategory:
+            category_name = category.customercategory
+
+    transactions_qs = Transaction.objects.filter(customerid=customer.customerid).order_by("-transdate")
+    total_spending = transactions_qs.aggregate(total=Sum("totalprice")).get("total") or 0
+    transactions = list(transactions_qs)
+    transaction_ids = [t.transactionid for t in transactions if t.transactionid is not None]
+
+    detail_map: dict[int, list[str]] = defaultdict(list)
+    if transaction_ids:
+        details = list(TransactionDetail.objects.filter(transactionid__in=transaction_ids))
+        product_ids = {d.productid for d in details if d.productid is not None}
+        product_lookup = {}
+        if product_ids:
+            product_lookup = {
+                p.productid: (p.productname or f"商品 {p.productid}")
+                for p in Product.objects.filter(productid__in=product_ids)
+            }
+
+        for detail in details:
+            item_name = product_lookup.get(detail.productid)
+            if not item_name:
+                item_name = f"商品 {detail.productid}" if detail.productid else "未知商品"
+            if detail.transactionid is not None:
+                detail_map[detail.transactionid].append(item_name)
+
+    consumptions = []
+    for txn in transactions:
+        consumptions.append(
+            {
+                "date": txn.transdate.strftime("%Y-%m-%d") if txn.transdate else "",
+                "amount": txn.totalprice or 0,
+                "items": detail_map.get(txn.transactionid, []),
+            }
+        )
+
     member = {
-        "customerID": base["id"],
-        "customerName": base["name"],
-        "gender": "(不願透露)",
-        "customerRegion": "(不願透露)",
-        "memberType": base["memberType"],
-        "customerJoinDay": "2025-11-11",
-        "totalSpending": 87940,
-        # 🔹 多筆消費紀錄，date 用 YYYY-MM-DD 方便排序
-        "consumptions": [
-            {
-                "date": "2025-11-11",
-                "amount": 500,
-                "items": ["品項1", "品項2", "品項3"],
-            },
-            {
-                "date": "2024-03-08",
-                "amount": 1200,
-                "items": ["耳機", "手機膜"],
-            },
-            {
-                "date": "2023-12-25",
-                "amount": 800,
-                "items": ["聖誕節活動商品A", "活動商品B"],
-            },
-        ],
+        "customerID": customer.customerid,
+        "customerName": customer.customername or "",
+        "gender": customer.gender or "",
+        "customerRegion": customer.customerregion or "",
+        "memberType": category_name,
+        "customerJoinDay": customer.customerjoinday.strftime("%Y-%m-%d") if customer.customerjoinday else "",
+        "totalSpending": total_spending,
+        "consumptions": consumptions,
     }
     return render(request, "customer.html", {"member": member})
 
-# ===== 首頁用的測試 API（如果還要用就保留）=====
+# ===========顧客編號查詢===========
 def member_api(request):
     member_id = request.GET.get("id", "").strip()
+    if not member_id:
+        return JsonResponse({"found": False, "error": "缺少會員編號"}, status=400)
 
-    if member_id in TEST_MEMBERS:
-        return JsonResponse({"found": True, "customer": TEST_MEMBERS[member_id]})
-    return JsonResponse({"found": False})
+    try:
+        member_id_int = int(member_id)
+    except ValueError:
+        return JsonResponse({"found": False, "error": "會員編號格式錯誤"}, status=400)
+
+    try:
+        customer = Customer.objects.get(customerid=member_id_int)
+    except Customer.DoesNotExist:
+        return JsonResponse({"found": False})
+
+    category_name = "未分級"
+    if customer.categoryid is not None:
+        category = CustomerCategory.objects.filter(categoryid=customer.categoryid).first()
+        if category and category.customercategory:
+            category_name = category.customercategory
+
+    total_spending = (
+        Transaction.objects.filter(customerid=customer.customerid).aggregate(total=Sum("totalprice")).get("total") or 0
+    )
+
+    member = {
+        "customerID": customer.customerid,
+        "customerName": customer.customername or "",
+        "gender": customer.gender or "",
+        "customerRegion": customer.customerregion or "",
+        "memberType": category_name,
+        "customerJoinDay": customer.customerjoinday.strftime("%Y-%m-%d") if customer.customerjoinday else "",
+        "totalSpending": total_spending,
+    }
+    return JsonResponse({"found": True, "customer": member})
 
 #===========
 
 
-#===============RFM分數計算=================
-#分類邏輯
-def classify_customer(recency_score,frequency_score,monetary_score):
-    #忠誠客戶:最近活躍 消費金額高 頻繁交易
-    if recency_score>=4 and frequency_score>=5 and monetary_score>=5:
-        return 1
-    
-    #潛在高價值客戶:消費金額高但交易次數較少
-    if recency_score>=3 and frequency_score>=3 and monetary_score>=4:
-        return 2  
-    
-    #沉睡客戶:無近期消費但過去曾經活躍
-    if recency_score<=2 and frequency_score>=3 and monetary_score>=3:
-        return 3
-    
-    #潛在流失客戶:消費金額少或長時間無消費
-    if recency_score<=2 and frequency_score<=2 and monetary_score<=2:
-        return 5
-    
-    #低價值客戶:消費金額少 頻率也較低
-    if recency_score<2 and frequency_score<2 and monetary_score<2:
-        return 6 
-    
-    #普通客戶:有消費但沒有很活躍
-    return 4 
 
-def calculate_rfm(request):
-    #取得今天日期
-    today=datetime.now()
-
-    #計算rfm指標
-    transactions=Transaction.objects.filter(transDate__lt=today).values('customerID').annotate(
-        recency=Max('transDate'),
-        frequency=Count('transactionID'),
-        monetary=Sum('totalprice')
-    )
-
-    for t in transactions:
-        #計算recency的天數（今天以前的消費日期）
-        recency_days=(today-t['recency']).days
-        recency_score=5 if recency_days<=30 else (4 if recency_days<=60 else (3 if recency_days<=90 else (2 if recency_days<=120 else 1)))
-        
-        #計算frequency數
-        frequency=t['frequency']
-        frequency_score=5 if frequency>=10 else (4 if frequency>=7 else (3 if frequency>=4 else (2 if frequency>=2 else 1)))
-        
-        #計算monetary
-        monetary=t['monetary']
-        monetary_score=5 if monetary>=1000 else (4 if monetary>=500 else (3 if monetary>=300 else (2 if monetary>=100 else 1)))
-        
-        #計算rfm的總分
-        RFMscore_value=recency_score+frequency_score+monetary_score
-
-        #判斷顧客類型
-        customer_category_id=classify_customer(recency_score,frequency_score,monetary_score)
-
-        #查詢RFMscore表來得到categoryID寫入Customer表
-        try:
-            rfm=RFMscore.objects.get(customerID=t['customerID'])
-            categoryID=rfm.categoryID  #取RFMscore表的categoryID
-        except RFMscore.DoesNotExist:
-            categoryID=None  #如果RFMscore中沒有找到對應記錄 設為None
-
-        #存RFM計算結果
-        RFMscore.objects.update_or_create(
-            customerID=t['customerID'],
-            defaults={
-                'rScore': recency_score,
-                'fScore': frequency_score,
-                'mScore': monetary_score,
-                'RFMscore': RFMscore_value,
-                'categoryID': customer_category_id,
-                'RFMupdate':today
-            }
-        )
-        
-        #根據RFMscore的categoryID更新Customer表的categoryID
-        if categoryID is not None:
-            Customer.objects.filter(customerID=t['customerID']).update(categoryID=categoryID)
-
-    #回傳所有結果到前端
-    transactions=RFMscore.objects.all()
-    return render(request,'rfm.html',{'transactions':transactions})
-
-
-
-def churn_chart(request):
-  """回傳一個 HTML 頁面，頁面會使用 Chart.js 呼叫 `/churn/` API 並繪製風險排行榜圖表。"""
-  # 可接受 query params 並直接傳給 API
-  return render(request, 'churn_chart.html')
 
 
 ##----------登入註冊相關頁面-----------
@@ -423,3 +408,22 @@ def customer_activity(request):
     "total_count": len(activities),
   }
   return render(request, "customer_activity.html", context)
+
+
+
+## =============RFM手動更新API=================
+@require_POST
+def trigger_rfm_update(request):
+  """
+  Manual trigger for recomputing RFM scores; requires login.
+  """
+  if not request.session.get('user_id'):
+    return redirect('login')
+
+  try:
+    updated_qs = recalc_rfm_scores()
+    messages.success(request, f"RFM scores updated ({updated_qs.count()} records).")
+  except Exception as exc:
+    messages.error(request, f"RFM update failed: {exc}")
+
+  return redirect('index')

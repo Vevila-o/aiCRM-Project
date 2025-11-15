@@ -4,8 +4,7 @@ from django.db import models
 
 ##交易明細表
 class TransactionDetail(models.Model):
-    transactionid = models.IntegerField(db_column='transactionID', blank=True, null=True)  # Field name made lowercase.
-    customerid = models.IntegerField(db_column='customerID', blank=True, null=True)  # Field name made lowercase.
+    transactionid = models.IntegerField(db_column='transactionID', primary_key=True)  # Field name made lowercase.
     productid = models.IntegerField(db_column='productID', blank=True, null=True)  # Field name made lowercase.
     quantity = models.IntegerField(blank=True, null=True)
     subtotal = models.IntegerField(blank=True, null=True)
@@ -17,7 +16,7 @@ class TransactionDetail(models.Model):
 
 ##交易主表
 class Transaction(models.Model):
-    transactionid = models.IntegerField(db_column='transactionID', blank=True, null=True)  # Field name made lowercase.
+    transactionid = models.IntegerField(db_column='transactionID', primary_key=True)  # Field name made lowercase.
     customerid = models.IntegerField(db_column='customerID', blank=True, null=True)  # Field name made lowercase.
     transdate = models.DateField(db_column='transDate', blank=True, null=True)  # Field name made lowercase.
     totalprice = models.FloatField(db_column='totalPrice', blank=True, null=True)  # Field name made lowercase.
@@ -28,7 +27,7 @@ class Transaction(models.Model):
 
 ##商品
 class Product(models.Model):
-    productid = models.IntegerField(db_column='productID', blank=True, null=True)  # Field name made lowercase.
+    productid = models.IntegerField(db_column='productID', primary_key=True)  # Field name made lowercase.
     productname = models.CharField(db_column='productName', max_length=512, blank=True, null=True)  # Field name made lowercase.
     productprice = models.IntegerField(db_column='productPrice', blank=True, null=True)  # Field name made lowercase.
     brand = models.CharField(max_length=512, blank=True, null=True)
@@ -80,3 +79,12 @@ class User(models.Model):
     class Meta:
         managed = False
         db_table = 'user'
+        
+## rfm分級
+class CustomerCategory(models.Model):
+    categoryid = models.IntegerField(db_column='categoryID', primary_key=True)  # Field name made lowercase.
+    customercategory = models.CharField(db_column='customerCategory', max_length=45, blank=True, null=True)  # Field name made lowercase.
+
+    class Meta:
+        managed = False
+        db_table = 'customer_category'
