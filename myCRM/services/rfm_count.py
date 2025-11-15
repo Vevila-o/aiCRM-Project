@@ -1,37 +1,36 @@
 #===============RFM分數計算=================
 
 from django.shortcuts import render, redirect
-from myCRM.models import Transaction, RFMscore, Customer
+from myCRM.models import Transaction, RFMscore, Customer, CustomerCategory
 from datetime import datetime
 from django.db.models import Count, Sum, Max
 #分類邏輯
-def classify_customer(recency_score,frequency_score,monetary_score):
-    #忠誠客戶:最近活躍 消費金額高 頻繁交易
-    if recency_score>=4 and frequency_score>=5 and monetary_score>=5:
+def classify_customer(recency_score, frequency_score, monetary_score):
+    # 忠誠客戶: 最近活躍、消費金額高、頻繁交易
+    if recency_score >= 4 and frequency_score >= 5 and monetary_score >= 5:
         return 1
     
-    #潛在高價值客戶:消費金額高但交易次數較少
-    if recency_score>=3 and frequency_score>=3 and monetary_score>=4:
+    # 潛在高價值客戶: 消費金額高但交易次數較少
+    if recency_score >= 3 and frequency_score >= 3 and monetary_score >= 4:
         return 2  
     
-    #沉睡客戶:無近期消費但過去曾經活躍
-    if recency_score<=2 and frequency_score>=3 and monetary_score>=3:
+    # 沉睡客戶: 無近期消費但過去曾經活躍
+    if recency_score <= 2 and frequency_score >= 3 and monetary_score >= 3:
         return 3
     
-    #潛在流失客戶:消費金額少或長時間無消費
-    if recency_score<=2 and frequency_score<=2 and monetary_score<=2:
+    # 低價值客戶: 消費金額非常少、頻率也非常低（最差的一群）
+    if recency_score <= 1 and frequency_score <= 1 and monetary_score <= 1:
+        return 6
+
+    # 潛在流失客戶: 最近不常來（recency_score 偏低）
+    # 且「交易頻率偏低」或「金額偏低」，放寬條件讓這一群人變多一點
+    if recency_score <= 3 and (frequency_score <= 3 or monetary_score <= 3):
         return 5
     
-    #低價值客戶:消費金額少 頻率也較低
-    if recency_score<2 and frequency_score<2 and monetary_score<2:
-        return 6
-    
-    #中等價值客戶:有消費但沒有很活躍
-    if recency_score>=2 and recency_score<=3 and frequency_score>=2 and frequency_score<=4 and monetary_score>=2 and monetary_score<=3:
-        return 4
-    
-    #其他客戶:除了以上6個標準外的都歸類在7
-    return 7 
+    # 普通客戶: 有消費但沒有很活躍（前面都不符合時，一律歸到普通客戶）
+    return 4
+
+
 
 def recalc_rfm_scores():
     """
@@ -45,6 +44,7 @@ def recalc_rfm_scores():
     """
 
     today = datetime.now().date()  # 取得今天的日期（避免 date/datetime 型別衝突）
+    this_month_start = today.replace(day=1)  # 🔹 本月第一天，判斷「本月新註冊」用
 
     # 先取得所有加入時間在今天以前的顧客
     all_customers = Customer.objects.filter(customerjoinday__lt=today)
@@ -67,9 +67,12 @@ def recalc_rfm_scores():
     # 依照每位顧客計算 RFM 分數並寫入資料庫
     for customer in all_customers:
         customer_id = customer.customerid
-        
-        if customer_id not in transaction_dict:
-            # 已加入但尚未消費的顧客，歸類到 7
+
+        # =========================================================
+        # 🔹 新增條件：本月內註冊的會員，視為「新顧客」
+        #    （假設使用 categoryID = 7 當作『新顧客』）
+        # =========================================================
+        if customer.customerjoinday and customer.customerjoinday >= this_month_start:
             RFMscore.objects.update_or_create(
                 customerID=customer_id,
                 defaults={
@@ -77,7 +80,23 @@ def recalc_rfm_scores():
                     "fScore": 0,
                     "mScore": 0,
                     "RFMscore": 0,
-                    "categoryID": 7,
+                    "categoryID": 7,          # 👈 這裡代表「新顧客」
+                    "RFMupdate": datetime.now(),
+                }
+            )
+            Customer.objects.filter(customerid=customer_id).update(categoryid=8)
+            continue
+
+        if customer_id not in transaction_dict:
+            # 已加入但尚未消費的顧客，歸類到 8
+            RFMscore.objects.update_or_create(
+                customerID=customer_id,
+                defaults={
+                    "rScore": 0,
+                    "fScore": 0,
+                    "mScore": 0,
+                    "RFMscore": 0,
+                    "categoryID": 8,
                     "RFMupdate": datetime.now(),
                 }
             )
@@ -103,9 +122,9 @@ def recalc_rfm_scores():
         # F 分數（交易越多分數越高）
         frequency = row["frequency"] or 0
         frequency_score = (
-            5 if frequency >= 10 else
-            4 if frequency >= 8 else
-            3 if frequency >= 4 else
+            5 if frequency >= 15 else
+            4 if frequency >= 10 else
+            3 if frequency >= 6 else
             2 if frequency >= 2 else
             1
         )
@@ -113,8 +132,8 @@ def recalc_rfm_scores():
         # M 分數（金額越高分數越高）
         monetary = row["monetary"] or 0
         monetary_score = (
-            5 if monetary >= 1500 else
-            4 if monetary >= 1000 else
+            5 if monetary >= 2500 else
+            4 if monetary >= 2000 else
             3 if monetary >= 500 else
             2 if monetary >= 100 else
             1
@@ -144,3 +163,47 @@ def recalc_rfm_scores():
 
     # 回傳全部 RFMscore 給 view 用來 render
     return RFMscore.objects.all()
+
+
+def get_rfm_category_distribution(exclude_labels=None):
+    """
+    Aggregate customer counts per RFM category.
+    Labels matching any value in exclude_labels (e.g. '其他') are skipped.
+    Returns {"labels": [...], "counts": [...], "total": int}.
+    """
+    label_map = {
+        str(cat.categoryid): (cat.customercategory or f"分類{cat.categoryid}")
+        for cat in CustomerCategory.objects.all()
+    }
+    excluded = {label.strip() for label in exclude_labels} if exclude_labels else set()
+
+    rows = (
+        Customer.objects
+        .exclude(categoryid__isnull=True)
+        .exclude(categoryid__exact="")
+        .values("categoryid")
+        .annotate(count=Count("customerid"))
+        .order_by("-count")
+    )
+
+    labels = []
+    counts = []
+    total = 0
+
+    for row in rows:
+        category_id = row["categoryid"]
+        label = label_map.get(str(category_id), str(category_id))
+        if not label:
+            continue
+        label = label.strip()
+        if label in excluded:
+            continue
+        labels.append(label)
+        counts.append(row["count"])
+        total += row["count"]
+
+    return {
+        "labels": labels,
+        "counts": counts,
+        "total": total,
+    }

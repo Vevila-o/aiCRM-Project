@@ -103,7 +103,24 @@ let zoomedChart  = null;     // 放大視窗中的圖表
 let dashboardData = null;    // 儀表板資料（折線圖季/年用）
 let lineMode = "quarter";    // 目前折線圖模式
 
-// 模擬從後端抓資料
+// 從後端抓資料
+// 從後端注入的全域變數取得儀表板資料
+async function fetchDashboardData() {
+  if (window.dashboardBootstrapData && typeof window.dashboardBootstrapData === "object") {
+    return window.dashboardBootstrapData;
+  }
+
+  // 保險：沒有資料時避免程式爆掉
+  return {
+    repurchaseRate: 0,
+    churnRate: 0,
+    vipRatio: 0,
+    totalCustomers: 0,
+    segments: [0, 0, 0, 0, 0, 0],
+    forecast: [0, 0, 0, 0],
+  };
+}
+
 
 
 // --- 首頁AI 行銷建議區塊：資料＆互動 ---
@@ -407,6 +424,8 @@ function enableChartPopup(boxId, getChartInstance) {
 /* ===========================
    Dashboard 初始化（合併版本）
 =========================== */
+
+
 async function initDashboard() {
   const data = await fetchDashboardData();
 
@@ -427,10 +446,10 @@ async function initDashboard() {
     pieChartRef = new Chart(pieCtx, {
       type: "pie",
       data: {
-        labels: ["高價值顧客", "一般顧客", "低價值顧客", "新顧客"],
+        labels: ["忠誠客戶","潛在高價值顧客", "普通顧客", "沉睡顧客", "潛在流失顧客", "低價值顧客","新顧客"],
         datasets: [{
           data: data.segments,
-          backgroundColor: ["#33b7e1", "#7cd1f9", "#bce4ff", "#e0f7ff"],
+          backgroundColor: ["#33b7e1", "#7cd1f9", "#bce4ff", "#e0f7ff", "#ff9999", "#ffcccc","#dfd54eff"],
         }]
       },
       options: {

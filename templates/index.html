@@ -119,6 +119,9 @@
       <button class="ai-btn" id="seeMoreBtn">查看更多...</button>
     </section>
   </main>
+    <script>
+    window.dashboardBootstrapData = {{ dashboard_data_json|safe }};
+  </script>
 
   <script src="{% static 'js/main.js' %}"></script>
   <script>

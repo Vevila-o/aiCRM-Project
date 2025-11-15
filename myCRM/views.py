@@ -19,7 +19,7 @@ from django.db.models import Count, Sum, Max,Q
 from datetime import datetime, timedelta
 from .services.login import authenticate_user
 from .services.login import create_user
-from .services.rfm_count import recalc_rfm_scores
+from .services.rfm_count import recalc_rfm_scores, get_rfm_category_distribution
 from django.views.decorators.http import require_POST
 from .services.basicRate import calculate_CRR, calculate_RPR, calculate_vip_ratio, calculate_allCus
 
@@ -28,70 +28,109 @@ from .services.basicRate import calculate_CRR, calculate_RPR, calculate_vip_rati
 
 # 小工具：比例格式化（0~1 轉百分比字串）
 def _format_rate(raw_value):
-  """
-  把 0~1 的比例轉成 xx.xx%，也容錯 raw_value 是 None 或字串。
-  回傳 (原始數值, 格式化字串或 None)
-  """
-  if raw_value is None:
-    return None, None
+    """
+    把 0~1 的比例轉成 xx.xx%，也容錯 raw_value 是 None 或字串。
+    回傳 (原始數值, 格式化字串或 None)
+    """
+    if raw_value is None:
+        return None, None
 
-  try:
-    v = float(raw_value)
-  except (TypeError, ValueError):
-    # 直接轉成字串回去
-    return raw_value, str(raw_value)
+    try:
+        v = float(raw_value)
+    except (TypeError, ValueError):
+        return raw_value, str(raw_value)
 
-  # 0~1 視為比例，乘以 100 變成百分比
-  if 0 <= v <= 1:
-    return v, f"{v * 100:.2f}%"
+    # 0~1 視為比例，乘以 100 變成百分比
+    if 0 <= v <= 1:
+        return v, f"{v * 100:.2f}%"
 
-  # 其他情況就當作已經是百分比數值（例如 85.3）
-  return v, f"{v:.2f}%"
+    # 其他情況就當作已經是百分比數值（例如 85.3）
+    return v, f"{v:.2f}%"
 
 
-# 首頁
 def index_view(request):
-  if not request.session.get('user_id'):
-    return redirect('login')
+    if not request.session.get('user_id'):
+        return redirect('login')
 
-  # 計算本月顧客留存率（CRR），回傳原始值與格式化字串
-  try:
-    crr_raw = calculate_CRR()  # 可能是 0..1 或百分比
-  except Exception:
-    crr_raw = None
-  crr_value, crr_display = _format_rate(crr_raw)
+    # === 顧客留存率 CRR ===
+    try:
+        crr_raw = calculate_CRR()
+    except Exception:
+        crr_raw = None
+    crr_value, crr_display = _format_rate(crr_raw)
 
-  # 計算本月顧客回購率（RPR），回傳原始值與格式化字串
-  try:
-    rpr_raw = calculate_RPR()
-  except Exception:
-    rpr_raw = None
-  rpr_value, rpr_display = _format_rate(rpr_raw)
+    # === 顧客回購率 RPR ===
+    try:
+        rpr_raw = calculate_RPR()
+    except Exception:
+        rpr_raw = None
+    rpr_value, rpr_display = _format_rate(rpr_raw)
 
-  # 高價值顧客佔比
-  try:
-    vip_raw = calculate_vip_ratio()
-  except Exception:
-    vip_raw = None
-  vip_value, vip_display = _format_rate(vip_raw)
+    # === 高價值顧客佔比 ===
+    try:
+        vip_raw = calculate_vip_ratio()
+    except Exception:
+        vip_raw = None
+    vip_value, vip_display = _format_rate(vip_raw)
 
-  return render(request, 'index.html', {
-    'username': request.session.get('username'),
-  
-    # 總顧客數（截止到今天）
-    'total_customers': calculate_allCus(),
+    # === 總顧客數 ===
+    try:
+        total_customers = calculate_allCus() or 0
+    except Exception:
+        total_customers = 0
 
-    # 原始數值（可能是 0.xx）
-    'crr_value': crr_value,
-    'rpr_value': rpr_value,
-    'vip_ratio_value': vip_value,
+    # === 圓餅圖：RFM 分群分布 ===
+    try:
+        # 可以排除「其他客戶」，也可以傳空陣列就全部顯示
+        dist = get_rfm_category_distribution(exclude_labels=["其他客戶"])
+        # dist = {"labels": [...], "counts": [...], "total": n}
+    except Exception:
+        dist = {"labels": [], "counts": [], "total": 0}
 
-    # 顯示用百分比字串
-    'crr': crr_display,
-    'rpr': rpr_display,
-    'vip_ratio': vip_display,
-  })
+    label_to_count = {
+        label: count
+        for label, count in zip(dist.get("labels", []), dist.get("counts", []))
+    }
 
+    # 這裡的名稱要跟實際 CustomerCategory.customercategory 一致
+    desired_labels = [
+        "忠誠客戶",
+        "潛在高價值顧客",
+        "普通顧客",
+        "沉睡顧客",
+        "潛在流失顧客",
+        "低價值顧客",
+        "新顧客"
+    ]
+
+    segments = [label_to_count.get(lbl, 0) for lbl in desired_labels]
+
+    # ⭐ 丟給前端 JS 用的資料
+    dashboard_data = {
+        # ⚠ 這裡修正對應：
+        #   repurchaseRate → 留存率（CRR）
+        #   churnRate      → 回購率（RPR）
+        "repurchaseRate": crr_value or 0.0,    # 給「本月顧客留存率」用
+        "churnRate":      rpr_value or 0.0,    # 給「本月顧客回購率」用
+        "vipRatio":       vip_value or 0.0,    # 高價值顧客佔比
+        "totalCustomers": total_customers,
+        "segments":       segments,
+        "segmentLabels":  desired_labels,
+        "forecast":       [50, 80, 120, 170],  # 先給假資料
+    }
+
+    return render(request, "index.html", {
+        "username": request.session.get("username"),
+
+        # 顯示在卡片上的字串
+        "crr":        crr_display,
+        "rpr":        rpr_display,
+        "vip_ratio":  vip_display,
+        "total_customers": total_customers,
+
+        # 給 main.js 用的 JSON
+        "dashboard_data_json": json.dumps(dashboard_data, ensure_ascii=False),
+    })
 
 # 歷史頁面
 def history_view(request):
