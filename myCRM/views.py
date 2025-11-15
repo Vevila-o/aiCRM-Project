@@ -15,28 +15,86 @@ from myCRM.models import (
   Customer,
   CustomerCategory,
 )
-from django.db.models import Count, Sum, Max
+from django.db.models import Count, Sum, Max,Q
 from datetime import datetime, timedelta
 from .services.login import authenticate_user
 from .services.login import create_user
 from .services.rfm_count import recalc_rfm_scores
 from django.views.decorators.http import require_POST
-
+from .services.basicRate import calculate_CRR, calculate_RPR, calculate_vip_ratio, calculate_allCus
 
 
 # Create your views here.
 
-#首頁
+# 小工具：比例格式化（0~1 轉百分比字串）
+def _format_rate(raw_value):
+  """
+  把 0~1 的比例轉成 xx.xx%，也容錯 raw_value 是 None 或字串。
+  回傳 (原始數值, 格式化字串或 None)
+  """
+  if raw_value is None:
+    return None, None
+
+  try:
+    v = float(raw_value)
+  except (TypeError, ValueError):
+    # 直接轉成字串回去
+    return raw_value, str(raw_value)
+
+  # 0~1 視為比例，乘以 100 變成百分比
+  if 0 <= v <= 1:
+    return v, f"{v * 100:.2f}%"
+
+  # 其他情況就當作已經是百分比數值（例如 85.3）
+  return v, f"{v:.2f}%"
+
+
+# 首頁
 def index_view(request):
   if not request.session.get('user_id'):
     return redirect('login')
-  return render(request, 'index.html', {'username': request.session.get('username')})
 
+  # 計算本月顧客留存率（CRR），回傳原始值與格式化字串
+  try:
+    crr_raw = calculate_CRR()  # 可能是 0..1 或百分比
+  except Exception:
+    crr_raw = None
+  crr_value, crr_display = _format_rate(crr_raw)
+
+  # 計算本月顧客回購率（RPR），回傳原始值與格式化字串
+  try:
+    rpr_raw = calculate_RPR()
+  except Exception:
+    rpr_raw = None
+  rpr_value, rpr_display = _format_rate(rpr_raw)
+
+  # 高價值顧客佔比
+  try:
+    vip_raw = calculate_vip_ratio()
+  except Exception:
+    vip_raw = None
+  vip_value, vip_display = _format_rate(vip_raw)
+
+  return render(request, 'index.html', {
+    'username': request.session.get('username'),
+  
+    # 總顧客數（截止到今天）
+    'total_customers': calculate_allCus(),
+
+    # 原始數值（可能是 0.xx）
+    'crr_value': crr_value,
+    'rpr_value': rpr_value,
+    'vip_ratio_value': vip_value,
+
+    # 顯示用百分比字串
+    'crr': crr_display,
+    'rpr': rpr_display,
+    'vip_ratio': vip_display,
+  })
 
 
 # 歷史頁面
 def history_view(request):
-
   if not request.session.get('user_id'):
     return redirect('login')
   return render(request, 'history.html', {'username': request.session.get('username')})
@@ -51,12 +109,40 @@ def calculate_rfm(request):
   return render(request, 'rfm.html', {'transactions': transactions})
 
 
+# 顧客本月留存率（若有另外做按鈕可以用這個 view 直接導回首頁）
+def calculate_crr(request):
+  """
+  呼叫 service 計算本月顧客留存率，實際顯示交給首頁 index_view 處理。
+  """
+  # 計算會在 index_view 裡重新做，這裡只做導回首頁即可避免重複模板邏輯
+  return redirect('index')
+
+
+# 本月顧客流失率
+def calculate_rpr(request):
+  """
+  呼叫 service 計算本月顧客流失率，實際顯示交給首頁 index_view 處理。
+  """
+  return redirect('index')
+
+
+# 高價值顧客佔比
+def calculate_vip_ratio_view(request):
+  """
+  呼叫 service 計算高價值顧客佔比，實際顯示交給首頁 index_view 處理。
+  """
+  return redirect('index')
+
+# 全部顧客人數
+def calculate_allCus_view(request):
+  return redirect('index')
+
+
 ## 測試流失圖
 def churn_chart(request):
   """回傳一個 HTML 頁面，頁面會使用 Chart.js 呼叫 `/churn/` API 並繪製風險排行榜圖表。"""
   # 可接受 query params 並直接傳給 API
   return render(request, 'churn_chart.html')
-
 
 
 ## =============流失預測相關API=================
@@ -71,6 +157,7 @@ def churn_predictions(request):
   as_of = request.GET.get('as_of')  # ISO 格式 yyyy-mm-dd，可選
 
   try:
+    # 如果 predict_churn 有支援 use_recency，可以改成傳入 use_recency=use_recency
     results = predict_churn(as_of=as_of, window_days=window_days)
     return JsonResponse({
       "count": len(results),
@@ -110,132 +197,121 @@ def churn_train(request):
     return JsonResponse({"error": str(e)}, status=500)
 
 
-
 # =============首頁測試檔案
 # 🔹 共用測試資料（首頁查詢 & 詳細頁共用）
-TEST_MEMBERS = {
-    "12345": {"id": "12345", "name": "Alice", "memberType": "高價值顧客"},
-    "99999": {"id": "99999", "name": "Bob",   "memberType": "高風險顧客"},
-    "55555": {"id": "55555", "name": "Cindy", "memberType": "新進顧客"},
-    }
-    
+
 ACTIVITY_PERIODS = {
-    "month": {"label": "近 1 個月", "days": 30},
-    "quarter": {"label": "近 1 季", "days": 90},
-    "year": {"label": "近 1 年", "days": 365},
+  "month": {"label": "近 1 個月", "days": 30},
+  "quarter": {"label": "近 1 季", "days": 90},
+  "year": {"label": "近 1 年", "days": 365},
 }
 
 #===========顧客詳細頁面===========
 
 def customer_page(request):
-  
-    member_id = request.GET.get("id", "").strip()
+  member_id = request.GET.get("id", "").strip()
 
-    if not member_id:
-        return redirect("index")
+  if not member_id:
+    return redirect("index")
 
-    try:
-        member_id_int = int(member_id)
-    except ValueError:
-        return render(request, "customer.html", {"member": None})
+  try:
+    member_id_int = int(member_id)
+  except ValueError:
+    return render(request, "customer.html", {"member": None})
 
-    try:
-        customer = Customer.objects.get(customerid=member_id_int)
-    except Customer.DoesNotExist:
-        return render(request, "customer.html", {"member": None})
+  try:
+    customer = Customer.objects.get(customerid=member_id_int)
+  except Customer.DoesNotExist:
+    return render(request, "customer.html", {"member": None})
 
-    category_name = "未分級"
-    if customer.categoryid is not None:
-        category = CustomerCategory.objects.filter(categoryid=customer.categoryid).first()
-        if category and category.customercategory:
-            category_name = category.customercategory
+  category_name = "未分級"
+  if customer.categoryid is not None:
+    category = CustomerCategory.objects.filter(categoryid=customer.categoryid).first()
+    if category and category.customercategory:
+      category_name = category.customercategory
 
-    transactions_qs = Transaction.objects.filter(customerid=customer.customerid).order_by("-transdate")
-    total_spending = transactions_qs.aggregate(total=Sum("totalprice")).get("total") or 0
-    transactions = list(transactions_qs)
-    transaction_ids = [t.transactionid for t in transactions if t.transactionid is not None]
+  transactions_qs = Transaction.objects.filter(customerid=customer.customerid).order_by("-transdate")
+  total_spending = transactions_qs.aggregate(total=Sum("totalprice")).get("total") or 0
+  transactions = list(transactions_qs)
+  transaction_ids = [t.transactionid for t in transactions if t.transactionid is not None]
 
-    detail_map: dict[int, list[str]] = defaultdict(list)
-    if transaction_ids:
-        details = list(TransactionDetail.objects.filter(transactionid__in=transaction_ids))
-        product_ids = {d.productid for d in details if d.productid is not None}
-        product_lookup = {}
-        if product_ids:
-            product_lookup = {
-                p.productid: (p.productname or f"商品 {p.productid}")
-                for p in Product.objects.filter(productid__in=product_ids)
-            }
+  detail_map: dict[int, list[str]] = defaultdict(list)
+  if transaction_ids:
+    details = list(TransactionDetail.objects.filter(transactionid__in=transaction_ids))
+    product_ids = {d.productid for d in details if d.productid is not None}
+    product_lookup = {}
+    if product_ids:
+      product_lookup = {
+        p.productid: (p.productname or f"商品 {p.productid}")
+        for p in Product.objects.filter(productid__in=product_ids)
+      }
 
-        for detail in details:
-            item_name = product_lookup.get(detail.productid)
-            if not item_name:
-                item_name = f"商品 {detail.productid}" if detail.productid else "未知商品"
-            if detail.transactionid is not None:
-                detail_map[detail.transactionid].append(item_name)
+    for detail in details:
+      item_name = product_lookup.get(detail.productid)
+      if not item_name:
+        item_name = f"商品 {detail.productid}" if detail.productid else "未知商品"
+      if detail.transactionid is not None:
+        detail_map[detail.transactionid].append(item_name)
 
-    consumptions = []
-    for txn in transactions:
-        consumptions.append(
-            {
-                "date": txn.transdate.strftime("%Y-%m-%d") if txn.transdate else "",
-                "amount": txn.totalprice or 0,
-                "items": detail_map.get(txn.transactionid, []),
-            }
-        )
+  consumptions = []
+  for txn in transactions:
+    consumptions.append(
+      {
+        "date": txn.transdate.strftime("%Y-%m-%d") if txn.transdate else "",
+        "amount": txn.totalprice or 0,
+        "items": detail_map.get(txn.transactionid, []),
+      }
+    )
 
-    member = {
-        "customerID": customer.customerid,
-        "customerName": customer.customername or "",
-        "gender": customer.gender or "",
-        "customerRegion": customer.customerregion or "",
-        "memberType": category_name,
-        "customerJoinDay": customer.customerjoinday.strftime("%Y-%m-%d") if customer.customerjoinday else "",
-        "totalSpending": total_spending,
-        "consumptions": consumptions,
-    }
-    return render(request, "customer.html", {"member": member})
+  member = {
+    "customerID": customer.customerid,
+    "customerName": customer.customername or "",
+    "gender": customer.gender or "",
+    "customerRegion": customer.customerregion or "",
+    "memberType": category_name,
+    "customerJoinDay": customer.customerjoinday.strftime("%Y-%m-%d") if customer.customerjoinday else "",
+    "totalSpending": total_spending,
+    "consumptions": consumptions,
+  }
+  return render(request, "customer.html", {"member": member})
+
 
 # ===========顧客編號查詢===========
 def member_api(request):
-    member_id = request.GET.get("id", "").strip()
-    if not member_id:
-        return JsonResponse({"found": False, "error": "缺少會員編號"}, status=400)
+  member_id = request.GET.get("id", "").strip()
+  if not member_id:
+    return JsonResponse({"found": False, "error": "缺少會員編號"}, status=400)
 
-    try:
-        member_id_int = int(member_id)
-    except ValueError:
-        return JsonResponse({"found": False, "error": "會員編號格式錯誤"}, status=400)
+  try:
+    member_id_int = int(member_id)
+  except ValueError:
+    return JsonResponse({"found": False, "error": "會員編號格式錯誤"}, status=400)
 
-    try:
-        customer = Customer.objects.get(customerid=member_id_int)
-    except Customer.DoesNotExist:
-        return JsonResponse({"found": False})
+  try:
+    customer = Customer.objects.get(customerid=member_id_int)
+  except Customer.DoesNotExist:
+    return JsonResponse({"found": False})
 
-    category_name = "未分級"
-    if customer.categoryid is not None:
-        category = CustomerCategory.objects.filter(categoryid=customer.categoryid).first()
-        if category and category.customercategory:
-            category_name = category.customercategory
+  category_name = "未分級"
+  if customer.categoryid is not None:
+    category = CustomerCategory.objects.filter(categoryid=customer.categoryid).first()
+    if category and category.customercategory:
+      category_name = category.customercategory
 
-    total_spending = (
-        Transaction.objects.filter(customerid=customer.customerid).aggregate(total=Sum("totalprice")).get("total") or 0
-    )
+  total_spending = (
+    Transaction.objects.filter(customerid=customer.customerid).aggregate(total=Sum("totalprice")).get("total") or 0
+  )
 
-    member = {
-        "customerID": customer.customerid,
-        "customerName": customer.customername or "",
-        "gender": customer.gender or "",
-        "customerRegion": customer.customerregion or "",
-        "memberType": category_name,
-        "customerJoinDay": customer.customerjoinday.strftime("%Y-%m-%d") if customer.customerjoinday else "",
-        "totalSpending": total_spending,
-    }
-    return JsonResponse({"found": True, "customer": member})
-
-#===========
-
-
-
+  member = {
+    "customerID": customer.customerid,
+    "customerName": customer.customername or "",
+    "gender": customer.gender or "",
+    "customerRegion": customer.customerregion or "",
+    "memberType": category_name,
+    "customerJoinDay": customer.customerjoinday.strftime("%Y-%m-%d") if customer.customerjoinday else "",
+    "totalSpending": total_spending,
+  }
+  return JsonResponse({"found": True, "customer": member})
 
 
 ##----------登入註冊相關頁面-----------
@@ -333,10 +409,6 @@ def register_view(request):
   return render(request, 'register.html', context)
 
 
-##----------登入註冊相關頁面-----------
-
-
-
 ## 顧客活躍度
 
 def customer_activity(request):
@@ -348,19 +420,21 @@ def customer_activity(request):
   period_info = ACTIVITY_PERIODS[period_key]
   since_date = today - timedelta(days=period_info["days"])
 
+  #  欄位名稱統一使用與其他地方一致的小寫命名
+
   activity_queryset = (
     Transaction.objects
-    .filter(transDate__gte=since_date, transDate__lte=today)
-    .values("customerID")
+    .filter(transdate__gte=since_date, transdate__lt=today)
+    .values("customerid")
     .annotate(
-      last_purchase=Max("transDate"),
-      orders=Count("transactionID"),
+      last_purchase=Max("transdate"),
+      orders=Count("transactionid"),
       total_spent=Sum("totalprice"),
     )
   )
 
-  customer_ids = [row["customerID"] for row in activity_queryset]
-  customer_lookup = Customer.objects.filter(customerID__in=customer_ids).in_bulk(field_name="customerID")
+  customer_ids = [row["customerid"] for row in activity_queryset]
+  customer_lookup = Customer.objects.filter(customerid__in=customer_ids).in_bulk(field_name="customerid")
 
   activities = []
   high = medium = low = 0
@@ -378,9 +452,9 @@ def customer_activity(request):
       activity_level = "低活躍"
       low += 1
 
-    customer = customer_lookup.get(row["customerID"])
+    customer = customer_lookup.get(row["customerid"])
     activities.append({
-      "customer_id": row["customerID"],
+      "customer_id": row["customerid"],
       "customer_name": getattr(customer, "customername", "未知顧客"),
       "orders": orders,
       "total_spent": total_spent,
@@ -389,9 +463,14 @@ def customer_activity(request):
       "activity_level": activity_level,
     })
 
-  activities.sort(key=lambda x: (0 if x["activity_level"] == "高活躍" else (1 if x["activity_level"] == "中活躍" else 2),
-                                 x["recency_days"] if x["recency_days"] is not None else 9999,
-                                 -x["orders"]))
+  activities.sort(
+    key=lambda x: (
+      0 if x["activity_level"] == "高活躍"
+      else (1 if x["activity_level"] == "中活躍" else 2),
+      x["recency_days"] if x["recency_days"] is not None else 9999,
+      -x["orders"],
+    )
+  )
 
   period_options = [{"key": key, "label": info["label"]} for key, info in ACTIVITY_PERIODS.items()]
 
@@ -408,7 +487,6 @@ def customer_activity(request):
     "total_count": len(activities),
   }
   return render(request, "customer_activity.html", context)
-
 
 
 ## =============RFM手動更新API=================

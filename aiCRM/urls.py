@@ -28,14 +28,15 @@ urlpatterns = [
     path('register/', views.register_view, name='register'),
     path('logout/', views.logout_view, name='logout'),
     path('history/', views.history_view, name='history'),
-    path("index/",   views.index_view,        name="index"), #首�?
+    path("index/",   views.index_view,        name="index"), #首頁
     path("ai-suggestion/", lambda r: render(r, "ai-suggestion.html"), name="ai"), #AI建議
-    path('calculate_rfm/', views.calculate_rfm, name='calculate_rfm'), #RFM計�?
+    path('calculate_rfm/', views.calculate_rfm, name='calculate_rfm'), #RFM計算
     path('rfm/update/', views.trigger_rfm_update, name='rfm_update'), #manual RFM refresh
     path("customer/",   views.customer_page, name="customer") ,#顧客詳細頁面
     path('churn/', views.churn_predictions), #流失測API
     path('churn/chart/', views.churn_chart), #流失測表API
     path('churn/train/', views.churn_train), #流失測訓練API
     path('activity/', views.customer_activity, name='customer_activity'), #顧客活動
-      path("api/member/", views.member_api), ## 顧客測試資料
+    path("api/member/", views.member_api), ## 顧客測試資料
+   
 ]

@@ -56,11 +56,11 @@ async function checkMemberId() {
 
     // 更新顏色 class
     memberTypeDisplay.classList.remove('is-empty','is-error','is-high','is-risk','is-new');
-    if (memberType === '高價值顧客') {
+    if (memberType === '忠誠顧客' || memberType === '潛在高價值顧客' || memberType === '普通顧客') {
       memberTypeDisplay.classList.add('is-high');
-    } else if (memberType === '高風險顧客') {
+    } else if (memberType === '沉睡顧客'|| memberType === '潛在流失顧客') {
       memberTypeDisplay.classList.add('is-risk');
-    } else if (memberType === '新進顧客') {
+    } else if (memberType === '新客/低價值顧客') {
       memberTypeDisplay.classList.add('is-new');
     }
 
@@ -104,21 +104,7 @@ let dashboardData = null;    // 儀表板資料（折線圖季/年用）
 let lineMode = "quarter";    // 目前折線圖模式
 
 // 模擬從後端抓資料
-async function fetchDashboardData() {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        repurchaseRate: 0.32,
-        churnRate: 0.08,
-        vipRatio: 0.29,
-        totalCustomers: 8920,
-        customerType: "高價值顧客",
-        segments: [40, 25, 20, 15],
-        forecast: [50, 80, 120, 170],
-      });
-    }, 1000);
-  });
-}
+
 
 // --- 首頁AI 行銷建議區塊：資料＆互動 ---
 const SEG_CONTENT = {

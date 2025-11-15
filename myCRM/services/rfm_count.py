@@ -24,10 +24,14 @@ def classify_customer(recency_score,frequency_score,monetary_score):
     
     #低價值客戶:消費金額少 頻率也較低
     if recency_score<2 and frequency_score<2 and monetary_score<2:
-        return 6 
+        return 6
     
-    #普通客戶:有消費但沒有很活躍
-    return 4 
+    #中等價值客戶:有消費但沒有很活躍
+    if recency_score>=2 and recency_score<=3 and frequency_score>=2 and frequency_score<=4 and monetary_score>=2 and monetary_score<=3:
+        return 4
+    
+    #其他客戶:除了以上6個標準外的都歸類在7
+    return 7 
 
 def recalc_rfm_scores():
     """
@@ -42,9 +46,10 @@ def recalc_rfm_scores():
 
     today = datetime.now().date()  # 取得今天的日期（避免 date/datetime 型別衝突）
 
-    # ------------------------------------------------------------
+    # 先取得所有加入時間在今天以前的顧客
+    all_customers = Customer.objects.filter(customerjoinday__lt=today)
+
     # 查詢所有顧客在今日以前的交易紀錄，並做 R、F、M 聚合
-    # ------------------------------------------------------------
     qs = (
         Transaction.objects
         .filter(transdate__lt=today)
@@ -56,15 +61,31 @@ def recalc_rfm_scores():
         )
     )
 
-    # ------------------------------------------------------------
-    # 依照每位顧客計算 RFM 分數並寫入資料庫
-    # ------------------------------------------------------------
-    for row in qs:
-        customer_id = row["customerid"]
-        last_dt = row["recency"]
+    # 將查詢結果轉換為字典，方便查找
+    transaction_dict = {row['customerid']: row for row in qs}
 
-        if last_dt is None:  # 無交易紀錄
+    # 依照每位顧客計算 RFM 分數並寫入資料庫
+    for customer in all_customers:
+        customer_id = customer.customerid
+        
+        if customer_id not in transaction_dict:
+            # 已加入但尚未消費的顧客，歸類到 7
+            RFMscore.objects.update_or_create(
+                customerID=customer_id,
+                defaults={
+                    "rScore": 0,
+                    "fScore": 0,
+                    "mScore": 0,
+                    "RFMscore": 0,
+                    "categoryID": 7,
+                    "RFMupdate": datetime.now(),
+                }
+            )
+            Customer.objects.filter(customerid=customer_id).update(categoryid=7)
             continue
+
+        row = transaction_dict[customer_id]
+        last_dt = row["recency"]
 
         # transdate 可能是 datetime 或 date，統一轉換為 date
         last_date = last_dt.date() if isinstance(last_dt, datetime) else last_dt
@@ -83,7 +104,7 @@ def recalc_rfm_scores():
         frequency = row["frequency"] or 0
         frequency_score = (
             5 if frequency >= 10 else
-            4 if frequency >= 7 else
+            4 if frequency >= 8 else
             3 if frequency >= 4 else
             2 if frequency >= 2 else
             1
@@ -92,9 +113,9 @@ def recalc_rfm_scores():
         # M 分數（金額越高分數越高）
         monetary = row["monetary"] or 0
         monetary_score = (
-            5 if monetary >= 1000 else
-            4 if monetary >= 500 else
-            3 if monetary >= 300 else
+            5 if monetary >= 1500 else
+            4 if monetary >= 1000 else
+            3 if monetary >= 500 else
             2 if monetary >= 100 else
             1
         )
@@ -105,9 +126,7 @@ def recalc_rfm_scores():
         # 分群類型（呼叫上面的分類邏輯）
         category_id = classify_customer(recency_score, frequency_score, monetary_score)
 
-        # ------------------------------------------------------------
         # 更新 RFMscore 表（若無則建立）
-        # ------------------------------------------------------------
         RFMscore.objects.update_or_create(
             customerID=customer_id,
             defaults={
@@ -120,9 +139,7 @@ def recalc_rfm_scores():
             }
         )
 
-        # ------------------------------------------------------------
         # 同時更新 Customer 類別（如果有 categoryid 欄位）
-        # ------------------------------------------------------------
         Customer.objects.filter(customerid=customer_id).update(categoryid=category_id)
 
     # 回傳全部 RFMscore 給 view 用來 render
