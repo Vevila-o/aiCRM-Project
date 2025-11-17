@@ -1,0 +1,242 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>行銷儀表板首頁</title>
+  <link rel="stylesheet" href="{% static 'css/style.css' %}" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+  <header>
+    <nav class="navbar">
+      <ul>
+        <li><a href="{% url 'index' %}">首頁</a></li>
+        <li><a href="{% url 'history' %}">歷史</a></li>
+        <li><a href="{% url 'logout' %}">登出</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main class="dashboard">
+    <!-- 隱藏的 CSRF token 供 JavaScript 使用 -->
+    {% csrf_token %}
+    
+    {% if messages %}
+    <div class="alert-panel">
+      {% for message in messages %}
+      <div class="alert {{ message.tags }}">{{ message }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    
+    <section class="stats">
+      <div class="card green">
+        <b style="font-size: 20px;">本月顧客留存率</b>
+        <h2 id="repurchaseRate">{{crr}}</h2>
+      </div>
+      <div class="card red">
+        <b style="font-size: 20px;">本月顧客回購率</b>
+        <h2 id="churnRate">{{rpr}}</h2>
+      </div>
+      <div class="card blue">
+        <b style="font-size: 20px;">高價值顧客佔比</b>
+        <h2 id="vipRatio">{{vip_ratio}}</h2>
+      </div>
+      <div class="card gray">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <b style="font-size: 20px;">總顧客數</b>
+          <button class="update-btn" onclick="updateRFMData()" title="手動更新顧客紀錄">更新</button>
+        </div>
+        <h2 id="totalCustomers">{{total_customers}}</h2>
+      </div>
+    </section>
+    <div class="dashboard-row">
+
+      <!-- 左邊：會員查詢（改成跟其他方框同尺寸） -->
+      <section class="chart-card same-size-box" id="memberBox">
+        <h3>會員查詢</h3>
+    
+        <div class="input-wrap">
+          <input
+            type="text"
+            id="memberInput"
+            class="pill-input"
+            placeholder="請輸入會員編號..."
+            oninput="checkMemberId()"
+          />
+        </div>
+    
+        <div id="memberTypeDisplay" class="result is-empty">
+          <p class="result-label">此顧客為</p>
+          <span id="customerType" class="customer-type">請輸入會員編號...</span>
+          <button id="detailBtn" class="learn-more-btn" onclick="navigateToCustomerDetail()" disabled>
+            了解詳情
+          </button>
+        </div>
+      </section>
+    
+    
+      <!-- 中：圓餅圖（可放大） -->
+      <section class="chart-card same-size-box chart-zoom" id="pieBox">
+        <h3>顧客分群比例圖</h3>
+        <canvas id="pieChart"></canvas>
+      </section>
+    
+    
+      <!-- 右：折線圖（可放大 季為單位） -->
+      <section class="chart-card same-size-box chart-zoom" id="lineBox">
+        <div class="chart-header">
+          <h3>顧客活躍度</h3>
+          <select id="forecastSelector">
+            <option value="quarter">季</option>
+            <option value="month">月</option>
+          </select>
+        </div>
+        <canvas id="lineChart"></canvas>
+      </section>
+            <!-- 進階模型分析連結 -->
+     <!-- 進階模型分析 -->
+<section class="chart-card same-size-box" id="modelBox">
+    <h3>進階模型分析</h3>
+
+    <button class="model-btn" onclick="location.href='/churn/chart/'">
+  CatBoost 流失率預測
+</button>
+
+        <button class="model-btn" onclick="location.href='/next-purchase/chart/'">
+            LSTM 下次來店時間預測
+        </button>
+
+        
+                    
+    </div>
+</section>
+
+    
+    </div>
+
+
+  
+    
+    <section class="ai-section" id="aiSection">
+      <div class="ai-header">
+        <h3>AI 行銷建議</h3>
+      </div>
+
+      <!-- 客群切換 -->
+      <div class="seg-tabs" role="tablist" aria-label="客群篩選">
+        <button class="seg-tab is-active" data-seg="high" role="tab" aria-selected="true">高價值顧客</button>
+        <button class="seg-tab" data-seg="risk" role="tab" aria-selected="false">高風險顧客</button>
+        <button class="seg-tab" data-seg="new" role="tab" aria-selected="false">新進顧客</button>
+      </div>
+
+      <!-- 建議內容（會動畫切換） -->
+      <div class="seg-panel" id="segPanel" aria-live="polite">
+        <!-- JS 會把對應建議渲染到這裡 -->
+      </div>
+      <button class="ai-btn" id="seeMoreBtn">查看更多...</button>
+    </section>
+  </main>
+    <script>
+    window.dashboardBootstrapData = {{ dashboard_data_json|safe }};
+  </script>
+
+  <script src="{% static 'js/main.js' %}"></script>
+  <script>
+    // AI 區塊的事件綁定已移至 main.js 中處理
+    // 這裡保留 RFM 更新相關功能
+
+    // RFM 數據更新函數
+    function updateRFMData() {
+      // 創建隱藏的表單來發送 POST 請求
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '{% url "rfm_update" %}';
+      form.style.display = 'none';
+      
+      // 添加 CSRF token
+      const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+      if (csrfToken) {
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = csrfToken.value;
+        form.appendChild(csrfInput);
+      }
+      
+      document.body.appendChild(form);
+      form.submit();
+    }
+
+  </script>
+
+  <!-- 自動更新顧客資料功能 -->
+  <script>
+    // 每小時自動更新顧客資料
+    function autoUpdateCustomerData() {
+      // 創建隱藏的表單來觸發更新
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '{% url "rfm_update" %}';
+      form.style.display = 'none';
+      
+      // 添加 CSRF token
+      const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+      const csrfInput = document.createElement('input');
+      csrfInput.type = 'hidden';
+      csrfInput.name = 'csrfmiddlewaretoken';
+      csrfInput.value = csrfToken;
+      form.appendChild(csrfInput);
+      
+      // 添加自動更新標記
+      const autoInput = document.createElement('input');
+      autoInput.type = 'hidden';
+      autoInput.name = 'auto_update';
+      autoInput.value = 'true';
+      form.appendChild(autoInput);
+      
+      document.body.appendChild(form);
+      form.submit();
+    }
+    
+    // 設定每小時執行一次自動更新 (3600000 毫秒 = 1小時)
+    setInterval(autoUpdateCustomerData, 3600000);
+    
+    // 頁面載入時顯示下次自動更新時間
+    document.addEventListener('DOMContentLoaded', function() {
+      const nextUpdateTime = new Date(Date.now() + 3600000);
+      console.log('下次自動更新時間：', nextUpdateTime.toLocaleString('zh-TW'));
+      
+      // 在控制台每10分鐘提醒一次
+      setInterval(() => {
+        const timeUntilUpdate = 3600000 - (Date.now() % 3600000);
+        const minutesLeft = Math.floor(timeUntilUpdate / 60000);
+        console.log(`距離下次自動更新還有 ${minutesLeft} 分鐘`);
+      }, 600000); // 10分鐘 = 600000毫秒
+    });
+  </script>
+
+  <!-- 圖表彈窗：放在 body 最後面 -->
+  <div id="chartModal" class="chart-modal hidden">
+    <div class="chart-modal-content">
+      <button class="chart-close-btn">✕</button>
+  
+      <div class="chart-modal-header">
+        <h3 id="chartModalTitle" class="chart-modal-title"></h3>
+        <!-- 放大用的季/月選單（只顯示用，可先設 disabled） -->
+        <select id="chartModalSelector" class="hidden" disabled>
+          <option value="quarter">季</option>
+          <option value="month">週</option>
+        </select>
+      </div>
+  
+      <canvas id="zoomCanvas"></canvas>
+    </div>
+  </div>
+
+  
+</body>
+</html>

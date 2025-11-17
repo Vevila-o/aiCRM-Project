@@ -1,0 +1,133 @@
+/* 設置全局樣式：移除預設邊距，使用較新的盒模型 */
+body {
+    font-family: Arial, sans-serif, "Microsoft JhengHei", "微軟正黑體"; /* 支援中文 */
+    background-color: #F5F7FA; /* 輕微的背景色，類似截圖邊緣的淺藍 */
+    margin: 0;
+    height: 100vh; /* 讓主體佔滿整個視窗高度 */
+    display: flex; /* 啟用 Flexbox 進行居中 */
+    justify-content: center; /* 水平居中 */
+    align-items: center; /* 垂直居中 */
+}
+
+/* 登入容器：用於整體居中 */
+.login-container {
+    padding: 20px;
+}
+
+/* 漸層邊框/陰影的外部容器 */
+.gradient-border-box {
+    /* 實現外框的圓角和陰影 */
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1); /* 柔和的陰影 */
+    
+    /* 使用 filter: drop-shadow 搭配背景漸層，來模擬圖片中的漸層邊框效果 */
+    /* 這是比較簡潔的實現方式，更精確的可能需要使用 ::before 偽元素 */
+    background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%); /* 基礎漸層背景 */
+    padding: 5px; /* 創造出邊框的厚度 */
+    
+    /* 模擬截圖中由藍到綠的漸層效果 */
+    background: linear-gradient(45deg, #a8ff78, #78ffd6, #00c6ff);
+}
+
+/* 登入框的白色主體 */
+.login-box {
+    background-color: #ffffff;
+    padding: 40px 60px; /* 內部填充，讓內容有足夠空間 */
+    border-radius: 14px; /* 比外框小一點的圓角 */
+    text-align: center; /* 標題居中 */
+    width: 300px; /* 設定登入框寬度 */
+}
+
+/* 標題樣式 */
+.login-box h1 {
+    font-size: 28px;
+    color: #333;
+    margin-bottom: 40px;
+    font-weight: normal;
+}
+
+/* 輸入框群組 */
+.input-group {
+    display: flex; /* 讓標籤和輸入框在同一行 */
+    align-items: center; /* 垂直對齊 */
+    margin-bottom: 25px; /* 群組間距 */
+}
+
+/* 標籤（帳號/密碼） */
+.input-group label {
+    flex-shrink: 0; /* 防止標籤被壓縮 */
+    width: 60px; /* 固定標籤寬度 */
+    text-align: right;
+    font-size: 16px;
+    color: #555;
+    margin-right: 15px;
+}
+
+/* 標籤（帳號/密碼） */
+.input-group label {
+    flex-shrink: 0; /* 防止標籤被壓縮 */
+    width: 60px; /* 固定標籤寬度 */
+    text-align: right;
+    font-size: 16px;
+    color: #555;
+    margin-right: 15px;
+}
+
+/* 輸入框 */
+.input-group input {
+    flex-grow: 1; /* 讓輸入框佔滿剩餘空間 */
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 16px;
+    outline: none; /* 移除點擊時的藍色外框 */
+    background-color: #f7f7f7; /* 淺灰色背景，類似截圖 */
+    transition: border-color 0.3s;
+}
+
+/* 聚焦時的樣式 */
+.input-group input:focus {
+    border-color: #00c6ff; /* 聚焦時邊框變色 */
+    background-color: #fff;
+}
+
+/* --- 新增的按鈕樣式 --- */
+.login-button {
+    width: 100%;
+    padding: 12px;
+    background: linear-gradient(45deg, #00c6ff, #0072ff); /* 藍色漸層按鈕 */
+    color: white;
+    font-size: 18px;
+    font-weight: bold;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 30px;
+    transition: background 0.3s, transform 0.1s;
+    box-shadow: 0 4px 15px rgba(0, 114, 255, 0.4);
+}
+
+.login-button:hover {
+    background: linear-gradient(45deg, #0072ff, #00c6ff); /* 滑鼠懸停時改變漸層方向 */
+}
+
+.login-button:active {
+    transform: scale(0.98); /* 點擊時輕微縮小 */
+}
+
+/* --- 訊息提示樣式 --- */
+.message {
+    margin-top: 20px;
+    font-size: 14px;
+    min-height: 20px; /* 確保即使沒有訊息時也有高度，避免內容跳動 */
+}
+
+.message.success {
+    color: #28a745; /* 綠色成功提示 */
+    font-weight: bold;
+}
+
+.message.error {
+    color: #dc3545; /* 紅色錯誤提示 */
+    font-weight: bold;
+}

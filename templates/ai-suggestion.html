@@ -1,0 +1,68 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>AI 行銷建議</title>
+  <link rel="stylesheet" href="{% static 'css/ai-suggestion.css' %}" />
+</head>
+<body>
+  <!-- 與首頁一致的導覽列 -->
+  <header>
+    <nav class="navbar">
+      <ul>
+        <li><a href="{% url 'index' %}">首頁</a></li>
+        <li><a href="{% url 'history' %}">歷史</a></li>
+        <li><a href="{% url 'logout' %}">登出</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <!-- 固定桌機兩欄 -->
+  <main class="wrap">
+    <!-- 左側主卡片 -->
+    <section class="card">
+      <div class="chip" aria-label="顧客類別選擇">
+        <span class="chip-label">顧客類別：</span>
+
+        <div class="select-wrap">
+          <select id="segmentSelect" class="chip-select" aria-label="選擇顧客類別">
+            <option value="1" selected>忠誠客戶</option>
+            <option value="2">潛在高價值客戶</option>
+            <option value="3">沉睡顧客</option>
+            <option value="4">普通客戶</option>
+            <option value="5">潛在流失客戶</option>
+            <option value="6">新客</option>
+            <option value="7">低價值客戶</option>
+          </select>
+          <span class="arrow">▼</span>
+        </div>
+      </div>
+
+      <div id="content" class="content"></div>
+    </section>
+
+    <!-- 右側固定詢問區 -->
+    <aside class="side">
+      <h3 class="side-title">詢問更多</h3>
+
+      <div class="qa">
+        <label for="q" class="section-title">輸入你的問題</label>
+        <!-- placeholder 會在 JS 載入後依選單自動更新 -->
+        <textarea id="q" placeholder="例：請為『忠誠客戶』擬 3 則關懷簡訊範本"></textarea>
+        <div class="row">
+          <button class="btn" id="askBtn" type="button">查詢</button>
+          <button class="btn btn-secondary" id="clearBtn" type="button" title="清除本機對話紀錄">清除對話</button>
+        </div>
+      </div>
+
+      <div class="chat">
+        <div id="chatMessages" class="messages"></div>
+      </div>
+    </aside>
+  </main>
+
+  <script src="{% static 'js/ai-suggestion.js' %}"></script>
+</body>
+</html>

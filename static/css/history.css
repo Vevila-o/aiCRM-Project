@@ -1,0 +1,174 @@
+:root{
+    --bg:#F4F6F9;
+    --nav-bg:#DFE4E9;
+    --text:#747884;
+    --card-shadow:0 2px 10px rgba(0,0,0,.08);
+    --radius:14px;
+    --chip-grad:linear-gradient(90deg,#92D2B2 0%,#96D5D1 100%);
+    --panel-grad:linear-gradient(135deg,#9ED3A7 0%,#96D5D1 100%);
+    --white:#FFFFFF;
+    --accent:#2b7cff;
+  }
+  
+  *{box-sizing:border-box}
+  
+  body{
+    background:var(--bg);
+    color:var(--text);
+    margin:0;
+    font-family:"Noto Sans TC",system-ui,-apple-system,Segoe UI,Roboto,"PingFang TC","Microsoft JhengHei",sans-serif;
+  }
+  
+  /* 主容器 */
+  .history-wrap{
+    width:min(1100px,92vw);
+    margin:28px auto 40px;
+  }
+  
+  /* 上方大膠囊（活動選擇） */
+  .activity-bar{
+    margin-bottom:20px;
+  }
+  
+  .activity-select-chip{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:var(--chip-grad);
+    border-radius:24px;
+    padding:14px 18px;
+    box-shadow:var(--card-shadow);
+  }
+  
+  .activity-select-label{
+    font-weight:800;
+    font-size:1.1rem;
+    color:#123;
+  }
+  
+  /* 下拉＋箭頭 */
+  .activity-select-wrap{
+    position:relative;
+  }
+  #activitySelect{
+    appearance:none;
+    border:none;
+    background:transparent;
+    font:inherit;
+    color:#123;
+    padding:6px 26px 6px 8px;
+    cursor:pointer;
+  }
+  .activity-arrow{
+    position:absolute;
+    right:6px;
+    top:50%;
+    transform:translateY(-50%);
+    font-weight:900;
+    color:#123;
+    pointer-events:none;
+  }
+  
+  /* 三個小方框 */
+  .metrics-row{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:18px;
+    margin-bottom:24px;
+  }
+  
+  .metric-card{
+    background:var(--white);
+    border-radius:16px;
+    box-shadow:var(--card-shadow);
+    padding:16px 14px;
+    text-align:center;
+  }
+  .metric-label{
+    margin:0 0 8px;
+    font-weight:700;
+    color:#4a4a4a;
+  }
+  .metric-main{
+    margin:0;
+    font-weight:800;
+    font-size:1.4rem;
+    color:#30a86b;
+  }
+  .metric-sub{
+    margin:6px 0 0;
+    font-size:0.9rem;
+  }
+  
+  /* 下方活動標題膠囊 */
+  .activity-detail-wrap{
+    margin-top:6px;
+  }
+  .activity-title-chip{
+    background:var(--panel-grad);
+    border-radius:20px 20px 0 0;
+    padding:12px 18px;
+    font-weight:800;
+    font-size:1.1rem;
+    color:#123;
+    box-shadow:var(--card-shadow);
+  }
+  
+  /* 活動介紹卡片（加長版） */
+  .activity-detail-card{
+    background:var(--white);
+    border-radius:0 0 20px 20px;
+    box-shadow:var(--card-shadow);
+    padding:20px 20px 24px;   /* 內距變大 */
+  }
+  
+  /* 上面灰色列（期間） */
+  .detail-header{
+    background:#e5e9ef;
+    border-radius:12px;
+    padding:8px 12px;
+    font-size:0.95rem;
+    margin-bottom:16px;
+  }
+  .detail-label{
+    font-weight:700;
+    color:#2c2c2c;
+  }
+  
+  /* 內容區（加最小高度，方匡更長） */
+  .detail-content{
+    background:#f3f6fb;
+    border-radius:12px;
+    padding:16px 18px 18px;
+    min-height:260px;          /* ★ 讓下面的大方匡看起來更長 */
+  }
+  .detail-heading{
+    margin:0 0 8px;
+    font-size:1.05rem;
+    font-weight:800;
+    color:#2c2c2c;
+  }
+  .detail-subheading{
+    margin:16px 0 6px;
+    font-size:1rem;
+    font-weight:800;
+  }
+  .detail-content p{
+    margin:0;
+    font-size:0.95rem;
+    line-height:1.8;
+  }
+  .detail-content ul{
+    margin:6px 0 0 1.2rem;
+    padding:0;
+    font-size:0.95rem;
+    line-height:1.7;
+  }
+  
+  /* RWD 簡單處理 */
+  @media (max-width:900px){
+    .metrics-row{
+      grid-template-columns:1fr;
+    }
+  }
+  

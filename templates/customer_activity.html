@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>顧客活躍度</title>
+    <style>
+      :root {
+        font-family: "Noto Sans TC", "Segoe UI", system-ui, -apple-system, sans-serif;
+        color: #111827;
+      }
+      body {
+        margin: 0;
+        padding: 24px;
+        background: #f5f6fa;
+      }
+      .container {
+        max-width: 1100px;
+        margin: 0 auto;
+        background: #fff;
+        padding: 32px;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+      }
+      h1 {
+        margin: 0 0 18px;
+        font-size: 28px;
+      }
+      .period-form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 24px;
+      }
+      select {
+        padding: 8px 14px;
+        border-radius: 8px;
+        border: 1px solid #cbd5f5;
+        font-size: 15px;
+      }
+      .range {
+        color: #6b7280;
+        font-size: 14px;
+      }
+      .summary-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 16px;
+        margin-bottom: 28px;
+      }
+      .card {
+        border-radius: 12px;
+        padding: 18px;
+        color: #fff;
+      }
+      .card p {
+        margin: 0;
+        font-size: 14px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+      }
+      .card strong {
+        font-size: 32px;
+        display: block;
+        margin-top: 6px;
+      }
+      .card.high {
+        background: linear-gradient(135deg, #22c55e, #16a34a);
+      }
+      .card.medium {
+        background: linear-gradient(135deg, #f97316, #ea580c);
+      }
+      .card.low {
+        background: linear-gradient(135deg, #e11d48, #be123c);
+      }
+      .card.total {
+        background: #0f172a;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 15px;
+      }
+      th,
+      td {
+        padding: 12px 10px;
+        border-bottom: 1px solid #e5e7eb;
+        text-align: left;
+      }
+      th {
+        background: #f8fafc;
+        font-weight: 600;
+      }
+      tbody tr:nth-child(odd) {
+        background: #fdfdfd;
+      }
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #fff;
+      }
+      .tag.high {
+        background: #22c55e;
+      }
+      .tag.medium {
+        background: #f97316;
+      }
+      .tag.low {
+        background: #e11d48;
+      }
+      .muted {
+        color: #6b7280;
+        font-size: 14px;
+      }
+      @media (max-width: 640px) {
+        .container {
+          padding: 20px;
+        }
+        table {
+          font-size: 14px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>顧客活躍度</h1>
+      <form class="period-form" method="get">
+        <label for="period">統計區間</label>
+        <select id="period" name="period" onchange="this.form.submit()">
+          {% for option in period_options %}
+            <option value="{{ option.key }}" {% if option.key == period_key %}selected{% endif %}>{{ option.label }}</option>
+          {% endfor %}
+        </select>
+        <span class="range">{{ since_date }} ~ {{ today }}</span>
+      </form>
+
+      <div class="summary-cards">
+        <div class="card total">
+          <p>活躍顧客</p>
+          <strong>{{ total_count }}</strong>
+        </div>
+        <div class="card high">
+          <p>高活躍</p>
+          <strong>{{ high_count }}</strong>
+        </div>
+        <div class="card medium">
+          <p>中活躍</p>
+          <strong>{{ medium_count }}</strong>
+        </div>
+        <div class="card low">
+          <p>低活躍</p>
+          <strong>{{ low_count }}</strong>
+        </div>
+      </div>
+
+      {% if activities %}
+        <table>
+          <thead>
+            <tr>
+              <th>顧客ID</th>
+              <th>顧客名稱</th>
+              <th>訂單數</th>
+              <th>總消費</th>
+              <th>最後消費日</th>
+              <th>距今(日)</th>
+              <th>活躍度</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in activities %}
+              <tr>
+                <td>{{ row.customer_id }}</td>
+                <td>{{ row.customer_name }}</td>
+                <td>{{ row.orders }}</td>
+                <td>{{ row.total_spent|floatformat:0 }}</td>
+                <td>{{ row.last_purchase|date:"Y-m-d" }}</td>
+                <td>{% if row.recency_days is not None %}{{ row.recency_days }}{% else %}-{% endif %}</td>
+                <td>
+                  <span class="tag {% if row.activity_level == '高活躍' %}high{% elif row.activity_level == '中活躍' %}medium{% else %}low{% endif %}">
+                    {{ row.activity_level }}
+                  </span>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="muted">此區間尚無任何顧客活動資料。</p>
+      {% endif %}
+    </div>
+  </body>
+</html>
