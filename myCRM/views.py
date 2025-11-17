@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 import json
 from collections import defaultdict
 from django.http import HttpResponse, JsonResponse
@@ -106,7 +106,7 @@ def index_view(request):
 
     segments = [label_to_count.get(lbl, 0) for lbl in desired_labels]
 
-    # ⭐ 丟給前端 JS 用的資料
+    #丟給前端 JS 用的資料
     dashboard_data = {
         # ⚠ 這裡修正對應：
         #   repurchaseRate → 留存率（CRR）
