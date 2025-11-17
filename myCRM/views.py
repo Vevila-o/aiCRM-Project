@@ -108,7 +108,7 @@ def index_view(request):
 
     #丟給前端 JS 用的資料
     dashboard_data = {
-        # ⚠ 這裡修正對應：
+        # 這裡修正對應：
         #   repurchaseRate → 留存率（CRR）
         #   churnRate      → 回購率（RPR）
         "repurchaseRate": crr_value or 0.0,    # 給「本月顧客留存率」用
