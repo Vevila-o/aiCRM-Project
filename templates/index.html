@@ -92,7 +92,7 @@
           <h3>顧客活躍度</h3>
           <select id="forecastSelector">
             <option value="quarter">季</option>
-            <option value="month">月</option>
+            <option value="month">週</option>
           </select>
         </div>
         <canvas id="lineChart"></canvas>
@@ -120,35 +120,79 @@
 
 
   
-    
     <section class="ai-section" id="aiSection">
       <div class="ai-header">
         <h3>AI 行銷建議</h3>
+        <div class="ai-period-selector">
+          <select id="aiPeriod">
+            <option value="" disabled selected  hidden>區間</option>
+            <option value="month">月</option>
+            <option value="quarter">季</option>
+          </select>
+        </div>
       </div>
-
+      <!-- 右上角新增選單（只有 UI，不綁其他功能） -->
       <!-- 客群切換 -->
       <div class="seg-tabs" role="tablist" aria-label="客群篩選">
-        <button class="seg-tab is-active" data-seg="high" role="tab" aria-selected="true">高價值顧客</button>
-        <button class="seg-tab" data-seg="risk" role="tab" aria-selected="false">高風險顧客</button>
-        <button class="seg-tab" data-seg="new" role="tab" aria-selected="false">新進顧客</button>
+        <button class="seg-tab is-active" data-seg="lotal" role="tab" aria-selected="true">忠誠客戶</button>
+        <button class="seg-tab" data-seg="potential_high" role="tab" aria-selected="false">潛在高價值顧客</button>
+        <button class="seg-tab" data-seg="regular" role="tab" aria-selected="false">普通顧客</button>
+        <button class="seg-tab" data-seg="low_value" role="tab" aria-selected="false">低價值顧客</button>
+        <button class="seg-tab" data-seg="dormant" role="tab" aria-selected="false">沉睡顧客</button>
+        <button class="seg-tab" data-seg="at_risk" role="tab" aria-selected="false">潛在流失顧客</button>
+        <button class="seg-tab" data-seg="new" role="tab" aria-selected="false">新客</button>
+
       </div>
+
 
       <!-- 建議內容（會動畫切換） -->
       <div class="seg-panel" id="segPanel" aria-live="polite">
         <!-- JS 會把對應建議渲染到這裡 -->
       </div>
-      <button class="ai-btn" id="seeMoreBtn">查看更多...</button>
+      <button class="ai-btn" id="seeMoreBtn">生成建議</button>
     </section>
   </main>
+  <!-- JavaScript 解析 JSON -->
     <script>
     window.dashboardBootstrapData = {{ dashboard_data_json|safe }};
-  </script>
+    </script>
 
   <script src="{% static 'js/main.js' %}"></script>
   <script>
     // AI 區塊的事件綁定已移至 main.js 中處理
-    // 這裡保留 RFM 更新相關功能
+    
+  // 監聽客群按鈕
+  const segTabs = document.querySelectorAll(".seg-tab");
+  let selectedSegment = "lotal"; //  跟 data-seg="lotal" 一致
 
+  segTabs.forEach(btn => {
+    btn.addEventListener("click", () => {
+      segTabs.forEach(b => b.classList.remove("is-active"));
+      btn.classList.add("is-active");
+      selectedSegment = btn.dataset.seg;
+    });
+  });
+
+  // 點擊「生成建議」→ 帶 seg + period 跳轉到 ai-suggestion 頁面
+    document.getElementById("seeMoreBtn").addEventListener("click", () => {
+
+      const period = document.getElementById("aiPeriod").value;
+  
+
+      if (!period) {
+        alert("請先選擇區間!");
+        //沒選區間就回首頁
+        window.location.href = "/index/";
+        return;
+      }
+    
+      window.location.href = `/ai-suggestion/?seg=${selectedSegment}&period=${period}`;
+    });
+</script>
+
+
+    
+<script>    
     // RFM 數據更新函數
     function updateRFMData() {
       // 創建隱藏的表單來發送 POST 請求

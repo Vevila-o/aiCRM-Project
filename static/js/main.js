@@ -38,7 +38,7 @@ async function checkMemberId() {
     const data = await resp.json();
 
     if (!data.found) {
-      // ❌ 資料庫沒有這個會員
+      // 資料庫沒有這個會員
       memberTypeDisplay.classList.remove('is-high','is-risk','is-new','is-empty');
       memberTypeDisplay.classList.add('is-error');
       memberTypeSpan.textContent = '查無此會員資料';
@@ -48,7 +48,7 @@ async function checkMemberId() {
       return;
     }
 
-    // ✅ 有找到會員
+    //  有找到會員
     const member = data.customer;          // 後端回傳的會員物件（含 memberType）
     const memberType = member.memberType;  // 例如：高價值顧客 / 高風險顧客 / 新進顧客 / 一般顧客
 
@@ -125,40 +125,77 @@ async function fetchDashboardData() {
 
 // --- 首頁AI 行銷建議區塊：資料＆互動 ---
 const SEG_CONTENT = {
-  high: {
-    title: '高價值顧客 — 建議',
+  lotal: {
+    title: '忠誠客戶 — 特徵',
     bullets: [
-      'VIP 維繫：會員升級、專屬活動、生日禮',
-      '提高客單：組合搭配 / 加價購（Cross-sell / Upsell）',
-      '情感連結：感謝信 + 回饋券'
+      '持續回購，黏著度高',
+      '消費頻率高、金額穩定',
+      '對品牌信任強，適合 VIP 或升等方案'
     ],
-    label: '高價值顧客'
+    label: '忠誠客戶'
   },
-  risk: {
-    title: '高風險顧客 — 建議',
+  potential_high: {
+    title: '潛在高價值顧客 — 特徵',
     bullets: [
-      '挽回誘因：回流折扣或免運',
-      '找出原因：簡短問卷（產品/價格/服務）',
-      '再互動：再行銷廣告 + 簡訊提醒'
+      '最近有消費、金額偏高但尚未穩定',
+      '有成為忠誠客戶的可能',
+      '適合給優惠引導提升'
     ],
-    label: '高風險顧客'
+    label: '潛在高價值顧客'
+  },
+  regular: {
+    title: '普通顧客 — 特徵',
+    bullets: [
+      '消費頻率普通、金額普通',
+      '尚未具備明顯高價值',
+      '適合進行加購與體驗提升'
+    ],
+    label: '普通顧客'
+  },
+  low_value: {
+    title: '低價值顧客 — 特徵',
+    bullets: [
+      '消費金額較低、客單價不高',
+      '購買頻率不固定，多為偶爾購買',
+      '適合導向促銷活動或提升體驗以促進加購'
+    ],
+    label: '低價值顧客'
+  },
+  dormant: {
+    title: '沉睡顧客 — 特徵',
+    bullets: [
+      '過去曾活躍，但近期長時間未購買',
+      '對品牌熟悉但關注度降低',
+      '適合啟動喚醒行銷'
+    ],
+    label: '沉睡顧客'
+  },
+  at_risk: {
+    title: '潛在流失顧客 — 特徵',
+    bullets: [
+      '最近購買間隔變長',
+      '活動度下降，但尚未完全沉睡',
+      '適合給提醒、專屬折扣挽回'
+    ],
+    label: '潛在流失顧客'
   },
   new: {
-    title: '新進顧客 — 建議',
+    title: '新客 — 特徵',
     bullets: [
-      '新手引導：開箱指南 / 使用教學',
-      '首次回購：限定 72 小時優惠',
-      '信任建立：社群口碑與使用者故事'
+      '剛加入或剛完成首次購買',
+      '對品牌不熟悉',
+      '適合做歡迎流程與教育式推播'
     ],
-    label: '新進顧客'
+    label: '新客'
   }
+  
 };
 
 const panel      = document.getElementById('segPanel');
 const tabs       = Array.from(document.querySelectorAll('.seg-tab'));
 const seeMoreBtn = document.getElementById('seeMoreBtn');
 
-let currentSeg = 'high'; // 預設
+let currentSeg = 'lotal'; // 預設
 
 function renderSeg(segKey) {
   const data = SEG_CONTENT[segKey];
@@ -184,9 +221,8 @@ function renderSeg(segKey) {
   // 更新「查看更多」按鈕目標
   if (seeMoreBtn) {
     seeMoreBtn.onclick = () => {
-      // 使用絕對路徑確保正確跳轉
-      window.location.href = `/ai-suggestion/?seg=${encodeURIComponent(segKey)}`;
-    };
+      const url = `ai-suggestion.html?seg=${encodeURIComponent(segKey)}`;
+      window.location.href = url;    };
   }
 }
 
@@ -541,9 +577,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // 綁定彈窗關閉事件（叉叉/背景）
   setupModalEvents();
 
-  // 綁定季 / 年切換（卡片 + 放大視窗）
+  // 綁定季 / 週切換（卡片 + 放大視窗）
   setupLineSelectors();
 
-  // 🚀 啟動儀表板（畫圖 & 綁定卡片點擊）
+  // 初始化 AI 區塊
+  renderSeg(currentSeg);
+
+  //  啟動儀表板（畫圖 & 綁定卡片點擊）
   initDashboard();
 });

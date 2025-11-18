@@ -1,235 +1,364 @@
 console.log("ai-suggestion.js loaded");
 
-// 後端 API 路徑 & 本機歷史記錄 key
-const BACKEND_ENDPOINT = "/chat/";
-const LS_HISTORY_KEY   = "AI_SUGGESTION_HISTORY";
 
-// 左側說明卡的靜態資料（依顧客群組）
-const DATA = {
-  vip: {
-    title: "高價值顧客",
-    features: [
-      "RFM 平均分數：5-5-5",
-      "平均消費金額：NT$ 8,000 / 月",
-      "最近購買日：30 天內"
-    ],
-    plans: [
-      "維繫忠誠：推出 VIP 專屬優惠或會員升級制度",
-      "提升單價：搭配推薦產品組合（Cross-selling）",
-      "情感連結：寄送感謝信或專屬生日優惠"
-    ],
-    outcomes: ["回購率提升 10%", "平均客單價提升 8%"],
-    channels: "Email、LINE 官方帳號、App 推播"
-  },
-  risk: {
-    title: "高風險顧客",
-    features: [
-      "RFM 平均分數：2-1-1",
-      "平均消費金額：NT$ 800 / 月",
-      "最近購買日：超過 90 天"
-    ],
-    plans: [
-      "挽回關係：提供回流專屬 1 次性折扣／免運券",
-      "降低流失：發送關懷問卷蒐集流失原因並回饋點數",
-      "重新喚起：推薦低門檻入手商品或組合"
-    ],
-    outcomes: ["回流率提升 6%", "退訂率下降 3%"],
-    channels: "SNS 再行銷、EDM、簡訊"
-  },
-  new: {
-    title: "新進顧客",
-    features: [
-      "RFM 平均分數：3-4-1",
-      "平均消費金額：NT$ 1,500 / 月",
-      "最近購買日：7 天內首次成交"
-    ],
-    plans: [
-      "加速熟悉：新手引導內容（如何挑選／使用指南）",
-      "第二單激勵：7 天內下次消費 9 折券",
-      "收集偏好：導入產品喜好標籤以利個人化推薦"
-    ],
-    outcomes: ["次月第二單率提升 12%", "名單標籤完整度達 80%"],
-    channels: "歡迎信系列、站內訊息、App 新手任務"
-  }
+// =========================================================
+// 從首頁取得 seg / period，產生左上角標題
+// =========================================================
+const urlParams = new URLSearchParams(window.location.search);
+const seg    = urlParams.get("seg");      // 例如：lotal / low_value ...
+const period = urlParams.get("period");   // month / quarter
+
+// 顧客類型中文名稱
+const SEG_NAME = {
+  lotal:          "忠誠客戶",
+  potential_high: "潛在高價值顧客",
+  regular:        "普通顧客",
+  low_value:      "低價值顧客",
+  dormant:        "沉睡顧客",
+  at_risk:        "潛在流失顧客",
+  new:            "新客"
 };
 
-// 取得 DOM 元件
-const contentEl = document.getElementById("content");
-const selectEl  = document.getElementById("segmentSelect");
-const askBtn    = document.getElementById("askBtn");
-const qEl       = document.getElementById("q");
-const chatBox   = document.getElementById("chatMessages");
-const clearBtn  = document.getElementById("clearBtn");
+// 區間中文名稱
+const PERIOD_NAME = {
+  month:   "本月",
+  quarter: "本季",
+};
 
-// 把下拉選單的 1~7 轉成 DATA 的 key
-function valueToKey(val) {
-  switch (val) {
-    case "1": // 忠誠客戶
-    case "2": // 潛在高價值客戶
-      return "vip";
-    case "5": // 潛在流失
-    case "7": // 低價值客戶
-      return "risk";
-    case "6": // 新客
-      return "new";
-    default:
-      return null;
+// 根據 seg + period 寫入標題文字
+function renderTitle() {
+  const titleEl = document.getElementById("suggestionTitle");
+  if (!titleEl) return;
+
+  const segName    = SEG_NAME[seg]    || "顧客";
+  const periodName = PERIOD_NAME[period] || "";
+
+  if (periodName) {
+    titleEl.textContent = `根據${periodName}${segName}資料，給你以下行銷建議：`;
+  } else {
+    titleEl.textContent = `根據${segName}資料，給你以下行銷建議：`;
   }
 }
 
-// 渲染左側說明卡
-function renderSegment(key) {
-  const d = DATA[key];
-  if (!d) {
-    contentEl.innerHTML = "";
+
+
+// =========================================================
+// 後端 API 路徑（依你 Django 架構）
+// =========================================================
+const API_INIT     = "/ai-suggestion/init/";
+const API_CHAT     = "/chat/";
+const API_EXECUTE  = "/ai-suggestion/execute/";
+
+
+// =========================================================
+// 右側聊天 — DOM
+// =========================================================
+const askBtn  = document.getElementById("askBtn");
+const qEl     = document.getElementById("q");
+const chatBox = document.getElementById("chatMessages");
+const clearBtn= document.getElementById("clearBtn");
+
+
+// =========================================================
+ // 左側建議欄 DOM + 分頁
+// =========================================================
+const suggestionListEl = document.getElementById("suggestionList");
+const paginationEl     = document.getElementById("pagination");
+
+let suggestions = [];      // 全部資料
+let currentPage = 1;
+const PAGE_SIZE = 3;
+
+
+// =========================================================
+// 一開始根據首頁 seg=xxx 推回 categoryID（1~7）
+// =========================================================
+function getCategoryIdFromSeg() {
+  const params = new URLSearchParams(window.location.search);
+  const segParam = params.get("seg");
+
+  switch (segParam) {
+    case "lotal":          return 1; // 忠誠
+    case "potential_high": return 2; // 潛在高價值
+    case "dormant":        return 3; // 沉睡
+    case "regular":        return 4; // 普通
+    case "at_risk":        return 5; // 潛在流失
+    case "new":            return 7; // 新客
+    case "low_value":      return 6; // 低價值
+    default:               return null;
+  }
+}
+
+const CATEGORY_ID = getCategoryIdFromSeg();
+
+
+// =========================================================
+// 1. 初始載入 — 從後端要模型建議
+// =========================================================
+async function loadInitialSuggestion() {
+  try {
+    const resp = await fetch(`${API_INIT}?categoryID=${CATEGORY_ID}&period=${encodeURIComponent(period || "")}`);
+    if (!resp.ok) {
+      console.error("初始建議載入失敗：HTTP", resp.status);
+      return;
+    }
+    const data = await resp.json();
+
+    if (data.initial) {
+      // data.initial 形狀：{ id, strategy_points:[], outcome_points:[], tag: "模型分析建議", executed:false }
+      suggestions.unshift(data.initial);
+      renderSuggestionList();
+    }
+  } catch (err) {
+    console.error("初始建議載入失敗:", err);
+  }
+}
+
+
+// =========================================================
+// 分頁 — 取得目前頁的三筆
+// =========================================================
+function getPagedSuggestions() {
+  const start = (currentPage - 1) * PAGE_SIZE;
+  return suggestions.slice(start, start + PAGE_SIZE);
+}
+
+
+// =========================================================
+// 渲染建議列表
+// =========================================================
+function renderSuggestionList() {
+  if (!suggestionListEl) return;
+
+  const total = suggestions.length;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  if (currentPage > totalPages) currentPage = totalPages;
+
+  const pageData = getPagedSuggestions();
+
+  if (!total) {
+    suggestionListEl.innerHTML = `
+      <p class="empty-info">
+        目前無 AI 建議。<br>
+        稍後會產生初始建議並顯示在這裡。
+      </p>
+    `;
+    if (paginationEl) paginationEl.innerHTML = "";
     return;
   }
-  const li = arr => arr.map(x => `<li>${x}</li>`).join("");
-  contentEl.innerHTML = `
-    <h2>${d.title}</h2>
-    <p class="section-title">特徵：</p>
-    <ul>${li(d.features)}</ul>
-    <p class="section-title">AI 建議方針：</p>
-    <ul>${li(d.plans)}</ul>
-    <p class="section-title">預期成果：</p>
-    <ul>${li(d.outcomes)}</ul>
-    <p class="section-title">建議管道：</p>
-    <p style="margin:.25rem 0 0 1rem">${d.channels}</p>
-  `;
-}
 
-// 右側輸入框 placeholder 文字，會跟下拉選單一起變
-function updatePlaceholder() {
-  const label = selectEl.options[selectEl.selectedIndex]?.text || "顧客";
-  qEl.placeholder = `例：請為『${label}』擬 3 則關懷簡訊範本`;
-}
+  let html = "";
 
-// ✅ 初始化（確保一進頁就有預設顧客＋左側卡片＋右側 placeholder）
-window.addEventListener("DOMContentLoaded", () => {
-  // 1️⃣ 如果一開始沒有值，就強制選「忠誠客戶」（value = 1）
-  if (!selectEl.value) {
-    selectEl.value = "1";
-  }
+  pageData.forEach((item, indexInPage) => {
+    const index = (currentPage - 1) * PAGE_SIZE + indexInPage + 1;
 
-  // 2️⃣ 根據目前選單的值，決定左側說明卡要顯示哪一組
-  const initKey = valueToKey(selectEl.value); // 會轉成 vip / risk / new
-  if (initKey) {
-    renderSegment(initKey);  // 一進來就渲染左側，不會是空白
-  }
+    const strat = (item.strategy_points || []).map(s => `<li>${s}</li>`).join("");
+    const outc  = (item.outcome_points  || []).map(s => `<li>${s}</li>`).join("");
 
-  // 3️⃣ 同步更新右側輸入框的 placeholder
-  updatePlaceholder();
+    html += `
+      <article class="suggestion-item">
+        <header class="suggestion-header">
+          <span class="suggestion-index">第 ${index} 筆行銷建議</span>
+          ${item.tag ? `<span class="suggestion-tag">${item.tag}</span>` : ""}
+          ${item.executed ? `<span class="executed-label">已執行</span>` : ""}
+        </header>
 
-  // 4️⃣ 之後每次切換選單，同時改左側卡片 + placeholder
-  selectEl.addEventListener("change", e => {
-    const key = valueToKey(e.target.value);
-    if (key) {
-      renderSegment(key);
-    } else {
-      contentEl.innerHTML = "";
-    }
-    updatePlaceholder();
+        <div class="suggestion-body">
+          <div class="suggestion-col">
+            <h4>行銷建議：</h4>
+            <ul>${strat}</ul>
+          </div>
+
+          <div class="suggestion-col">
+            <h4>預期成果：</h4>
+            <ul>${outc}</ul>
+          </div>
+        </div>
+
+        <footer class="suggestion-footer">
+          <button class="btn execute-btn" data-id="${item.id}">執行此建議</button>
+        </footer>
+      </article>
+    `;
   });
-});
 
-// ---- 聊天記錄（存在瀏覽器 localStorage） ----
-function loadHistory() {
+  suggestionListEl.innerHTML = html;
+  renderPagination(totalPages);
+  bindExecuteButtons();
+}
+
+
+// =========================================================
+// 渲染分頁
+// =========================================================
+function renderPagination(totalPages) {
+  if (!paginationEl) return;
+
+  if (totalPages <= 1) {
+    paginationEl.innerHTML = "";
+    return;
+  }
+
+  let html = "";
+
+  html += `
+    <button class="page-btn" data-page="first" ${currentPage===1?"disabled":""}>第一頁</button>
+    <button class="page-btn" data-page="prev"  ${currentPage===1?"disabled":""}>上一頁</button>
+  `;
+
+  for (let p = 1; p <= totalPages; p++) {
+    html += `
+      <button class="page-btn ${p===currentPage?"is-active":""}" data-page="${p}">${p}</button>
+    `;
+  }
+
+  html += `
+    <button class="page-btn" data-page="next" ${currentPage===totalPages?"disabled":""}>下一頁</button>
+    <button class="page-btn" data-page="last" ${currentPage===totalPages?"disabled":""}>最後一頁</button>
+  `;
+
+  paginationEl.innerHTML = html;
+
+  const btns = paginationEl.querySelectorAll(".page-btn");
+  btns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const page = btn.dataset.page;
+
+      if (page === "first")      currentPage = 1;
+      else if (page === "prev")  currentPage = Math.max(1, currentPage - 1);
+      else if (page === "next")  currentPage = Math.min(totalPages, currentPage + 1);
+      else if (page === "last")  currentPage = totalPages;
+      else                       currentPage = parseInt(page, 10);
+
+      renderSuggestionList();
+    });
+  });
+}
+
+
+// =========================================================
+// 綁定執行按鈕
+// =========================================================
+function bindExecuteButtons() {
+  const btns = document.querySelectorAll(".execute-btn");
+  btns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.id;
+      executeSuggestion(id);
+    });
+  });
+}
+
+
+// =========================================================
+// 執行建議 → 寫入 ai_suggection
+// =========================================================
+async function executeSuggestion(id) {
+  const target = suggestions.find(s => String(s.id) === String(id));
+  if (!target) return;
+
+  const ok = window.confirm("確定接受此建議？若同意擇一鍵發送優惠！");
+  if (!ok) return;
+
   try {
-    const raw = localStorage.getItem(LS_HISTORY_KEY);
-    const arr = raw ? JSON.parse(raw) : [];
-    return Array.isArray(arr) ? arr : [];
-  } catch {
-    return [];
+    await fetch(API_EXECUTE, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        categoryID: CATEGORY_ID,
+        guideline: (target.strategy_points || []).join("\n"),
+        outcome:   (target.outcome_points  || []).join("\n"),
+        // TODO：這裡可以改成後端 session 的 user_id
+        userID: 1
+      })
+    });
+
+    target.executed = true;
+    renderSuggestionList();
+    alert("已寫入資料庫（ai_suggection）");
+
+  } catch (err) {
+    console.error("執行建議失敗", err);
   }
 }
-function saveHistory(his) {
-  localStorage.setItem(LS_HISTORY_KEY, JSON.stringify(his));
-}
-function clearHistory() {
-  localStorage.removeItem(LS_HISTORY_KEY);
-}
 
-let history = loadHistory();
 
-function renderMessages() {
-  chatBox.innerHTML = "";
-  history.forEach(m =>
-    appendMessage(m.role === "assistant" ? "ai" : "user", m.content)
-  );
-  chatBox.scrollTop = chatBox.scrollHeight;
-}
-
-function appendMessage(role, text, isLoading = false) {
+// =========================================================
+// 右側聊天 + 自動插入建議
+// =========================================================
+function appendMessage(role, text, loading=false) {
   const msg = document.createElement("div");
   msg.className = `msg ${role}`;
+
   const bubble = document.createElement("div");
-  bubble.className = "bubble" + (isLoading ? " loading" : "");
+  bubble.className = `bubble ${loading?"loading":""}`;
   bubble.textContent = text;
+
   msg.appendChild(bubble);
   chatBox.appendChild(msg);
   chatBox.scrollTop = chatBox.scrollHeight;
   return bubble;
 }
 
-renderMessages();
-
-async function sendToBackend(message, categoryID) {
-  const resp = await fetch(BACKEND_ENDPOINT, {
+async function sendChatToBackend(text) {
+  const resp = await fetch(API_CHAT, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {"Content-Type":"application/json"},
     body: JSON.stringify({
-      message: message,
-      categoryID: categoryID
+      message:   text,
+      categoryID: CATEGORY_ID,
+      userID:    1
     })
   });
 
   if (!resp.ok) {
-    const t = await resp.text().catch(() => "");
-    throw new Error(`後端錯誤：${resp.status} ${t}`);
+    throw new Error(`HTTP ${resp.status}`);
   }
   const data = await resp.json();
-  if (!data || typeof data.reply !== "string") {
-    throw new Error("回傳格式錯誤，需為 { reply: string }");
-  }
-  return data.reply.trim();
+  return data;
 }
 
-// ---- 問問題主流程 ----
 async function ask(question) {
-  const categoryID = selectEl.value;  // 這裡直接就是 1~7
-
   appendMessage("user", question);
-  const loading = appendMessage("ai", "正在思考中…", true);
-
-  // 本機歷史（只管前端顯示）
-  history.push({ role: "user", content: question });
+  const loadingBubble = appendMessage("ai", "思考中…", true);
 
   try {
-    const reply = await sendToBackend(question, categoryID);
+    const data = await sendChatToBackend(question);
 
-    loading.textContent = reply;
-    loading.classList.remove("loading");
+    loadingBubble.textContent = data.reply;
+    loadingBubble.classList.remove("loading");
 
-    history.push({ role: "assistant", content: reply });
-    saveHistory(history);
-
+    // 若回覆有建議 → 自動加入左側欄
+    if (data.newSuggestion) {
+      suggestions.unshift(data.newSuggestion);
+      currentPage = 1;
+      renderSuggestionList();
+    }
   } catch (err) {
-    loading.textContent = `❗發生錯誤：${err.message}`;
-    loading.classList.remove("loading");
+    loadingBubble.textContent = `錯誤：${err}`;
+    loadingBubble.classList.remove("loading");
   }
 }
 
-// 按鈕事件：送出問題
-askBtn.addEventListener("click", () => {
-  const q = (qEl.value || "").trim();
-  if (!q) return;
-  ask(q);
-  qEl.value = "";
-});
+if (askBtn) {
+  askBtn.addEventListener("click", () => {
+    const text = qEl.value.trim();
+    if (!text) return;
+    ask(text);
+    qEl.value = "";
+  });
+}
 
-// 按鈕事件：清除本機對話
-clearBtn.addEventListener("click", () => {
-  history = [];
-  clearHistory();
-  renderMessages();
-});
+if (clearBtn) {
+  clearBtn.addEventListener("click", () => {
+    chatBox.innerHTML = "";
+  });
+}
+
+
+// =========================================================
+// 初始化：先畫標題，再載入模型建議
+// =========================================================
+renderTitle();
+loadInitialSuggestion();
+renderSuggestionList();

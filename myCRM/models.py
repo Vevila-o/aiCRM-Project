@@ -91,11 +91,35 @@ class CustomerCategory(models.Model):
 
 
 ## ai建議
+## ai建議
 class AiSuggection(models.Model):
-    suggectid = models.AutoField(db_column='suggectID', primary_key=True)  # Field name made lowercase.
-    categoryID = models.IntegerField(db_column='CategoryID', blank=True, null=True)  # Field name made lowercase.
-    content = models.CharField(max_length=2000, blank=True, null=True)
+    suggectid = models.AutoField(db_column='suggectID', primary_key=True)  # 主鍵
+    categoryID = models.IntegerField(db_column='CategoryID', blank=True, null=True)  
+    userID = models.CharField(db_column='userID', max_length=45, blank=True, null=True) 
+    aiRecommedGuideline = models.CharField(db_column='aiRecommedGuideline', max_length=1000, blank=True, null=True)  
+    expectedResults = models.CharField(db_column='expectedResults', max_length=1000, blank=True, null=True)  
+    suggestDate = models.DateTimeField(db_column='suggestDate', blank=True, null=True)  
+
+    class Meta:
+        managed = False   
+        db_table = 'ai_suggection'
+
+
+class ChatRecord(models.Model):
+    chatID = models.AutoField(db_column='chatID', primary_key=True)  # 主鍵
+
+    user = models.ForeignKey(
+        User,
+        models.DO_NOTHING,
+        db_column='userID',
+        blank=True,
+        null=True,
+    )
+
+    categoryID = models.IntegerField(db_column='categoryID', blank=True, null=True)  # 1-7 顧客價值類型
+    userContent = models.TextField(db_column='userContent', blank=True, null=True)   # 使用者問題
+    aiContent = models.TextField(db_column='aiContent', blank=True, null=True)       # AI 回覆
 
     class Meta:
         managed = False
-        db_table = 'ai_suggection'
+        db_table = 'chat_record'
