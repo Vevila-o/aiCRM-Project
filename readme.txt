@@ -1,10 +1,10 @@
 需要下載的套件
-pandas numpy keras matplotib pymysql catboost python-dotenv PyTorch
+pandas numpy keras  matplotlib pymysql catboost python-dotenv PyTorch
 
 套件部分特別下載指令
 pip install -U scikit-learn
 pip install torch
-
+pip install requests python-dotenv
 
 database: ai_crm
 

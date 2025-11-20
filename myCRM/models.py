@@ -28,15 +28,15 @@ class Transaction(models.Model):
 ##商品
 class Product(models.Model):
     productid = models.IntegerField(db_column='productID', primary_key=True)  # Field name made lowercase.
-    productname = models.CharField(db_column='productName', max_length=512, blank=True, null=True)  # Field name made lowercase.
-    productprice = models.IntegerField(db_column='productPrice', blank=True, null=True)  # Field name made lowercase.
-    brand = models.CharField(max_length=512, blank=True, null=True)
-    statue = models.CharField(max_length=512, blank=True, null=True)
+    productname = models.CharField(db_column='productName', max_length=100, blank=True, null=True)  # Field name made lowercase.
+    productprice = models.FloatField(db_column='productPrice', blank=True, null=True)  # Field name made lowercase.
+    categoryid = models.CharField(db_column='categoryID', max_length=10, blank=True, null=True)  # Field name made lowercase.
+    brand = models.CharField(max_length=45, blank=True, null=True)
+    statue = models.CharField(max_length=45, blank=True, null=True)
 
     class Meta:
         managed = False
         db_table = 'product'
-
 ##顧客
 class Customer(models.Model):
     customerid = models.IntegerField(db_column='customerID', primary_key=True)  # Field name made lowercase.
@@ -91,7 +91,6 @@ class CustomerCategory(models.Model):
 
 
 ## ai建議
-## ai建議
 class AiSuggection(models.Model):
     suggectid = models.AutoField(db_column='suggectID', primary_key=True)  # 主鍵
     categoryID = models.IntegerField(db_column='CategoryID', blank=True, null=True)  
@@ -104,7 +103,7 @@ class AiSuggection(models.Model):
         managed = False   
         db_table = 'ai_suggection'
 
-
+## ai聊天紀錄
 class ChatRecord(models.Model):
     chatID = models.AutoField(db_column='chatID', primary_key=True)  # 主鍵
 
@@ -123,3 +122,26 @@ class ChatRecord(models.Model):
     class Meta:
         managed = False
         db_table = 'chat_record'
+        
+## 商品類別
+class ProductCategory(models.Model):
+    categoryid = models.IntegerField(db_column='categoryID', primary_key=True)  # Field name made lowercase.
+    categoryname = models.CharField(db_column='categoryName', max_length=45, blank=True, null=True)  # Field name made lowercase.
+
+    class Meta:
+        managed = False
+        db_table = 'product_category'
+
+## 優惠券
+class Campaign(models.Model):
+    campaignid = models.IntegerField(db_column='campaignID', primary_key=True)  # Field name made lowercase.
+    customerid = models.IntegerField(db_column='customerID', blank=True, null=True)  # Field name made lowercase.
+    type = models.CharField(max_length=45, blank=True, null=True)
+    givetime = models.DateTimeField(db_column='giveTime', blank=True, null=True)  # Field name made lowercase.
+    starttime = models.DateTimeField(db_column='startTime', blank=True, null=True)  # Field name made lowercase.
+    endtime = models.DateTimeField(db_column='endTime', blank=True, null=True)  # Field name made lowercase.
+    isuse = models.CharField(db_column='isUse', max_length=10, blank=True, null=True)  # Field name made lowercase.
+
+    class Meta:
+        managed = False
+        db_table = 'campaign'

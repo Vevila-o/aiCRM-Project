@@ -56,7 +56,7 @@ urlpatterns = [
     path("api/customer-growth/", views.customer_growth_api, name="customer_growth_api"),
     path('chat/', chat_views.chat, name='chat'),  # AI聊天機器人
     path("ai-suggestion/", views.ai_suggestion_page, name="ai_suggestion"), #AI建議
-
-   
-
-]
+    path("ai-suggestion/init/", chat_views.ai_suggestion_init, name="ai_suggestion_init"), #AI建議初始化
+    path("ai-suggestion/execute/", chat_views.execute_suggestion, name="execute_suggestion"), #執行AI建議
+    
+    ]

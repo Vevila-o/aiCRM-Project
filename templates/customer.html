@@ -15,15 +15,18 @@
     <header>
         <nav class="navbar">
             <ul>
-                <li><a href="/index/">首頁</a></li>
+                <li><a href="{% url 'index' %}">首頁</a></li>
                 <li><a href="{% url 'history' %}">歷史</a></li>
-                <li><a href="/">登出</a></li>
+                <li><a href="{% url 'logout' %}">登出</a></li>
             </ul>
         </nav>
     </header>
 
     <div class="container">
-        <h2 class="section-title">個別顧客資料</h2>
+        <div class="page-header">
+            <h2 class="section-title">個別顧客資料</h2>
+            <button class="btn btn-secondary" onclick="location.href='/index/'">返回首頁</button>
+        </div>
         {% if member %}
         <div class="main-content">
             <div class="customer-details-header">
@@ -50,8 +53,87 @@
                 加入日期：<span>{{ member.customerJoinDay|default:"--" }}</span>
                 累計消費金額 <span class="highlight-spending">{{ member.totalSpending|default:"0" }}</span> 元
             </div>
+
             
-            <!-- 🔽 排序選單 -->
+            <!-- 🔹 剛需品 / 彈性需求品 區塊 -->
+            <div class="demand-section-wrapper">
+                <div class="demand-box">
+                    <h3 class="demand-title">剛需品</h3>
+                    <p class="demand-note">
+                        購買頻率≥20% 或金額佔比≥15% 且購買≥3次的類別<br>
+                        代表此顧客的高頻率、規律性消費品項
+                    </p>
+                    {% if member.essential_items %}
+                    <ul class="demand-list">
+                        {% for item in member.essential_items %}
+                            <li>
+                                <div class="demand-item-info">
+                                    <span class="item-name">{{ item.name }}</span>
+                                    <span class="item-stats">購買 {{ item.count }} 次</span>
+                                </div>
+                                <div class="demand-item-details">
+                                    <span class="detail-tag">頻率：{{ item.frequency }}</span>
+                                    <span class="detail-tag">金額：{{ item.total_amount }} 元</span>
+                                    <span class="detail-tag">佔比：{{ item.amount_ratio }}</span>
+                                </div>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="empty-demand">此顧客暫無明顯的剛需品消費模式</p>
+                    {% endif %}
+                </div>
+                
+                <div class="demand-box">
+                    <h3 class="demand-title">彈性需求品</h3>
+                    <p class="demand-note">
+                        購買頻率較低或偶爾消費的品項<br>
+                        代表此顧客的非必要或衝動型消費
+                    </p>
+                    {% if member.flexible_items %}
+                    <ul class="demand-list">
+                        {% for item in member.flexible_items %}
+                            <li>
+                                <div class="demand-item-info">
+                                    <span class="item-name">{{ item.name }}</span>
+                                    <span class="item-stats">購買 {{ item.count }} 次</span>
+                                </div>
+                                <div class="demand-item-details">
+                                    <span class="detail-tag">頻率：{{ item.frequency }}</span>
+                                    <span class="detail-tag">金額：{{ item.total_amount }} 元</span>
+                                    <span class="detail-tag">佔比：{{ item.amount_ratio }}</span>
+                                </div>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="empty-demand">此顧客暫無彈性需求品消費</p>
+                    {% endif %}
+                </div>
+            </div>
+            <!-- 產品類別統計區塊 -->
+            <div class="product-categories-section">
+                <h3 class="section-subtitle">購買產品類別統計</h3>
+                {% if member.categoryStats %}
+                <div class="categories-grid">
+                    {% for category in member.categoryStats %}
+                    <div class="category-item">
+                        <div class="category-header">
+                            <span class="category-name">{{ category.name }}</span>
+                            <span class="category-count">{{ category.count }} 件</span>
+                        </div>
+                        <div class="category-amount">
+                            總金額：<span class="amount-value">{{ category.total_amount }}</span> 元
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="empty-state">暫無產品類別數據</p>
+                {% endif %}
+            </div>
+            
+            <!--  排序選單 -->
             <div class="consumption-toolbar">
                 <div class="toolbar-spacer"></div>   <!-- 左邊空白，用來撐版面 -->
                 

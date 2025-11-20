@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>活動歷史分析</title>
+  <title>歷史優惠券紀錄</title>
   <!-- 共用首頁樣式（含 header） -->
   <link rel="stylesheet" href="{% static 'css/style.css' %}" />
   <!-- 歷史頁專用樣式 -->
@@ -23,72 +23,30 @@
   </header>
 
   <main class="history-wrap">
-    <!-- 上方大膠囊：活動選擇（下拉＋箭頭） -->
+    <!-- 上方大膠囊：顧客分群 -->
     <section class="activity-bar">
       <div class="activity-select-chip">
-        <div class="activity-select-label" id="activityTitleTop">
-          超市 × 門市聯名「春季集點換好禮」
+        <div class="activity-select-label" id="segmentTitleTop">
+          忠誠顧客
         </div>
         <div class="activity-select-wrap">
-          <select id="activitySelect" aria-label="選擇活動">
-            <option value="spring">超市 × 門市聯名「春季集點換好禮」</option>
-            <option value="summer">夏季冰品 & 飲料買一送一週</option>
-            <option value="yearend">年終超市「滿額抽家電」大促</option>
+          <select id="segmentSelect" aria-label="選擇顧客分群">
+            <option value="loyal">忠誠顧客</option>
+            <option value="potential_vip">潛在高價值顧客</option>
+            <option value="regular">普通顧客</option>
+            <option value="low_value">低價值顧客</option>
+            <option value="sleeping">沉睡顧客</option>
+            <option value="churn_risk">潛在流失顧客</option>
+            <option value="new">新客</option>
           </select>
           <span class="activity-arrow">▼</span>
         </div>
       </div>
     </section>
 
-    <!-- 三個並列小方框 -->
-    <section class="metrics-row">
-      <div class="metric-card">
-        <p class="metric-label">新進顧客</p>
-        <p class="metric-main" id="metricNewMain">276 位</p>
-        <p class="metric-sub" id="metricNewSub">新客成長 +48％</p>
-      </div>
-
-      <div class="metric-card">
-        <p class="metric-label">高價值顧客</p>
-        <p class="metric-main" id="metricVipMain">參與率 62％</p>
-        <p class="metric-sub" id="metricVipSub">平均消費提升 22％</p>
-      </div>
-
-      <div class="metric-card">
-        <p class="metric-label">活動效益</p>
-        <p class="metric-main" id="metricEffMain">營收 +31％</p>
-        <p class="metric-sub" id="metricEffSub">冰品與生活品項同步成長</p>
-      </div>
-    </section>
-
-    <!-- 下方：活動標題膠囊＋活動介紹卡片 -->
-    <section class="activity-detail-wrap">
-      <div class="activity-title-chip" id="activityTitleBottom">
-        超市 × 門市聯名「春季集點換好禮」
-      </div>
-
-      <div class="activity-detail-card">
-        <div class="detail-header">
-          <span class="detail-label">活動期間：</span>
-          <span id="detailPeriod">2025/03/01 - 2025/03/31</span>
-        </div>
-
-        <div class="detail-content">
-          <h3 class="detail-heading" id="detailHeading">活動說明</h3>
-          <p id="detailDescription">
-            春季集點活動主打「買越多、回饋越多」，主攻家庭客群與回流顧客。
-            客人於超市消費可累積點數，並至門市兌換指定商品或折價券。本活動成功帶動門市客流增加，
-            尤其在周三與周六雙倍點數日更是人潮最多，使得整體平均客單價明顯提升。
-          </p>
-
-          <h4 class="detail-subheading">成果摘要</h4>
-          <ul id="detailSummary">
-            <li>新會員加入 276 位，新客成長 +48％。</li>
-            <li>高價值顧客參與率 62％，平均消費提升 22％。</li>
-            <li>活動期間整體營收成長 31％。</li>
-          </ul>
-        </div>
-      </div>
+    <!-- 優惠券列表 -->
+    <section id="couponList" class="coupon-list">
+      <!-- 內容由 history.js 動態產生 -->
     </section>
   </main>
 

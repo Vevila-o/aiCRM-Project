@@ -1,11 +1,9 @@
 console.log("ai-suggestion.js loaded");
 
 
-// =========================================================
-// 從首頁取得 seg / period，產生左上角標題
-// =========================================================
+// 從首頁取得 seg/period，產生左上角標題
 const urlParams = new URLSearchParams(window.location.search);
-const seg    = urlParams.get("seg");      // 例如：lotal / low_value ...
+const seg    = urlParams.get("seg");      //ex:lotal/low_value...
 const period = urlParams.get("period");   // month / quarter
 
 // 顧客類型中文名稱
@@ -19,13 +17,13 @@ const SEG_NAME = {
   new:            "新客"
 };
 
-// 區間中文名稱
+//區間中文名稱
 const PERIOD_NAME = {
   month:   "本月",
   quarter: "本季",
 };
 
-// 根據 seg + period 寫入標題文字
+// 根據seg+period寫入標題文字
 function renderTitle() {
   const titleEl = document.getElementById("suggestionTitle");
   if (!titleEl) return;
@@ -36,7 +34,7 @@ function renderTitle() {
   if (periodName) {
     titleEl.textContent = `根據${periodName}${segName}資料，給你以下行銷建議：`;
   } else {
-    titleEl.textContent = `根據${segName}資料，給你以下行銷建議：`;
+    titleEl.textContent = `根據${segName}資料，給你以下建議優惠券：`;
   }
 }
 
@@ -104,11 +102,19 @@ async function loadInitialSuggestion() {
     }
     const data = await resp.json();
 
+    //左 第一筆建議
     if (data.initial) {
-      // data.initial 形狀：{ id, strategy_points:[], outcome_points:[], tag: "模型分析建議", executed:false }
       suggestions.unshift(data.initial);
       renderSuggestionList();
     }
+
+    //右 等同於使用者先問一次+ai回答一次
+    if (data.question && data.reply) {
+      
+      appendMessage("user", data.question);
+      appendMessage("ai", data.reply);
+    }    
+
   } catch (err) {
     console.error("初始建議載入失敗:", err);
   }
@@ -152,8 +158,9 @@ function renderSuggestionList() {
   pageData.forEach((item, indexInPage) => {
     const index = (currentPage - 1) * PAGE_SIZE + indexInPage + 1;
 
-    const strat = (item.strategy_points || []).map(s => `<li>${s}</li>`).join("");
-    const outc  = (item.outcome_points  || []).map(s => `<li>${s}</li>`).join("");
+    const strat  = (item.strategy_points || []).map(s => `<li>${s}</li>`).join("");
+    const outc   = (item.outcome_points  || []).map(s => `<li>${s}</li>`).join("");
+    
 
     html += `
       <article class="suggestion-item">
@@ -165,8 +172,8 @@ function renderSuggestionList() {
 
         <div class="suggestion-body">
           <div class="suggestion-col">
-            <h4>行銷建議：</h4>
-            <ul>${strat}</ul>
+            <h4>建議優惠券：</h4>
+            <ul>${strat || "<li>無推薦優惠券</li>"}</ul>
           </div>
 
           <div class="suggestion-col">
@@ -186,6 +193,7 @@ function renderSuggestionList() {
   renderPagination(totalPages);
   bindExecuteButtons();
 }
+
 
 
 // =========================================================
@@ -250,14 +258,14 @@ function bindExecuteButtons() {
 }
 
 
-// =========================================================
-// 執行建議 → 寫入 ai_suggection
-// =========================================================
+
+//執行建議->寫入ai_suggection+ campaign
+
 async function executeSuggestion(id) {
   const target = suggestions.find(s => String(s.id) === String(id));
   if (!target) return;
 
-  const ok = window.confirm("確定接受此建議？若同意擇一鍵發送優惠！");
+  const ok = window.confirm("確定接受此建議？若同意將發送對應優惠券方案！");
   if (!ok) return;
 
   try {
@@ -266,8 +274,8 @@ async function executeSuggestion(id) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         categoryID: CATEGORY_ID,
-        guideline: (target.strategy_points || []).join("\n"),
-        outcome:   (target.outcome_points  || []).join("\n"),
+        guideline: (target.strategy_points || []).join("\n"),//guideline 整段建議優惠券文字->給後端
+        outcome:   (target.outcome_points  || []).join("\n"),//outcome 整段預期成果
         // TODO：這裡可以改成後端 session 的 user_id
         userID: 1
       })
@@ -275,12 +283,13 @@ async function executeSuggestion(id) {
 
     target.executed = true;
     renderSuggestionList();
-    alert("已寫入資料庫（ai_suggection）");
+    alert("已寫入資料庫");
 
   } catch (err) {
     console.error("執行建議失敗", err);
   }
 }
+
 
 
 // =========================================================

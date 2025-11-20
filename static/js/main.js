@@ -55,9 +55,11 @@ async function checkMemberId() {
     memberTypeSpan.textContent = memberType;
 
     // 更新顏色 class
-    memberTypeDisplay.classList.remove('is-empty','is-error','is-high','is-risk','is-new');
-    if (memberType === '忠誠顧客' || memberType === '潛在高價值顧客' || memberType === '普通顧客') {
+    memberTypeDisplay.classList.remove('is-empty','is-error','is-high','is-risk','is-new','is-normal');
+    if (memberType === '忠誠顧客' || memberType === '潛在高價值顧客' ) {
       memberTypeDisplay.classList.add('is-high');
+    } else if ( memberType === '普通顧客' ){
+        memberTypeDisplay.classList.add('is-normal')
     } else if (memberType === '沉睡顧客'|| memberType === '潛在流失顧客') {
       memberTypeDisplay.classList.add('is-risk');
     } else if (memberType === '新客/低價值顧客') {
@@ -73,7 +75,7 @@ async function checkMemberId() {
 
   } catch (err) {
     console.error(err);
-    memberTypeDisplay.classList.remove('is-high','is-risk','is-new','is-empty');
+    memberTypeDisplay.classList.remove('is-high','is-risk','is-new','is-empty','is-normal');
     memberTypeDisplay.classList.add('is-error');
     memberTypeSpan.textContent = '連線失敗，請稍後再試';
     learnMoreBtn.disabled = true;

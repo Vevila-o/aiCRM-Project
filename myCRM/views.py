@@ -5,7 +5,7 @@ from collections import defaultdict
 from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
 from django.utils import timezone
-from .services.test import test
+
 from .services.churn_service import predict_churn, train_churn_model
 from .services.next_purchse import (
     train_next_purchase_model,
@@ -21,6 +21,7 @@ from myCRM.models import (
   Product,
   Customer,
   CustomerCategory,
+  ProductCategory,
 )
 from django.db.models import Count, Sum, Max,Q
 from datetime import datetime, timedelta
@@ -351,11 +352,11 @@ def customer_page(request):
   except Customer.DoesNotExist:
     return render(request, "customer.html", {"member": None})
 
-  category_name = "未分級"
+  customer_category_name = "未分級"
   if customer.categoryid is not None:
     category = CustomerCategory.objects.filter(categoryid=customer.categoryid).first()
     if category and category.customercategory:
-      category_name = category.customercategory
+      customer_category_name = category.customercategory
 
   transactions_qs = Transaction.objects.filter(customerid=customer.customerid).order_by("-transdate")
   total_spending = transactions_qs.aggregate(total=Sum("totalprice")).get("total") or 0
@@ -380,6 +381,104 @@ def customer_page(request):
       if detail.transactionid is not None:
         detail_map[detail.transactionid].append(item_name)
 
+  # 收集產品類別統計
+  category_stats = {}
+  if transaction_ids:
+    # 取得所有交易明細中的產品 ID
+    product_ids_list = list(product_ids) if product_ids else []
+    
+    if product_ids_list:
+      # 查詢產品及其類別資訊
+      products_with_categories = Product.objects.filter(
+        productid__in=product_ids_list
+      ).values('productid', 'productname', 'categoryid')
+      
+      # 建立類別ID到類別名稱的映射
+      category_ids = set()
+      for product in products_with_categories:
+        if product['categoryid']:
+          try:
+            category_ids.add(int(product['categoryid']))
+          except (ValueError, TypeError):
+            pass
+      
+      # 查詢產品類別名稱
+      category_lookup = {}
+      if category_ids:
+        categories = ProductCategory.objects.filter(categoryid__in=category_ids)
+        for cat in categories:
+          # 確保使用實際的 categoryname，如果為空則使用 ID
+          display_name = cat.categoryname
+          if display_name and display_name.strip():
+            category_lookup[cat.categoryid] = display_name.strip()
+          else:
+            category_lookup[cat.categoryid] = f"類別 {cat.categoryid}"
+      
+      # 統計每個類別的購買次數和總金額
+      for detail in details:
+        if detail.productid in product_ids:
+          product_info = next(
+            (p for p in products_with_categories if p['productid'] == detail.productid),
+            None
+          )
+          if product_info and product_info['categoryid']:
+            try:
+              category_id = int(product_info['categoryid'])
+              productCategory_name = category_lookup.get(category_id, f"類別 {category_id}")
+              
+              if productCategory_name not in category_stats:
+                category_stats[productCategory_name] = {
+                  'name': productCategory_name,
+                  'count': 0,
+                  'total_amount': 0
+                }
+              category_stats[productCategory_name]['count'] += (detail.quantity or 1)
+              category_stats[productCategory_name]['total_amount'] += (detail.subtotal or 0)
+            except (ValueError, TypeError):
+              # 如果 categoryid 無法轉換為整數，跳過
+              pass
+
+  # 分析剛需品和彈性需求品
+  essential_items = []
+  flexible_items = []
+  
+  if category_stats:
+    # 計算總購買次數和總金額
+    total_purchases = sum(cat['count'] for cat in category_stats.values())
+    total_amount_spent = sum(cat['total_amount'] for cat in category_stats.values())
+    
+    for category_name, stats in category_stats.items():
+      # 計算購買頻率（次數佔比）
+      purchase_frequency = stats['count'] / total_purchases if total_purchases > 0 else 0
+      # 計算金額佔比
+      amount_ratio = stats['total_amount'] / total_amount_spent if total_amount_spent > 0 else 0
+      
+      # 剛需品判斷條件：
+      # 1. 購買頻率 >= 20% (經常購買)
+      # 2. 或者金額佔比 >= 15% (重要支出)
+      # 3. 購買次數 >= 3 次 (有一定規律性)
+      if (purchase_frequency >= 0.2 or amount_ratio >= 0.15) and stats['count'] >= 3:
+        essential_items.append({
+          'name': category_name,
+          'count': stats['count'],
+          'total_amount': stats['total_amount'],
+          'frequency': f"{purchase_frequency:.1%}",
+          'amount_ratio': f"{amount_ratio:.1%}"
+        })
+      else:
+        # 彈性需求品：購買頻率較低或金額佔比較小的商品
+        flexible_items.append({
+          'name': category_name,
+          'count': stats['count'],
+          'total_amount': stats['total_amount'],
+          'frequency': f"{purchase_frequency:.1%}",
+          'amount_ratio': f"{amount_ratio:.1%}"
+        })
+    
+    # 按購買次數排序
+    essential_items.sort(key=lambda x: x['count'], reverse=True)
+    flexible_items.sort(key=lambda x: x['count'], reverse=True)
+
   consumptions = []
   for txn in transactions:
     consumptions.append(
@@ -395,10 +494,13 @@ def customer_page(request):
     "customerName": customer.customername or "",
     "gender": customer.gender or "",
     "customerRegion": customer.customerregion or "",
-    "memberType": category_name,
+    "memberType": customer_category_name,
     "customerJoinDay": customer.customerjoinday.strftime("%Y-%m-%d") if customer.customerjoinday else "",
     "totalSpending": total_spending,
     "consumptions": consumptions,
+    "categoryStats": list(category_stats.values()),
+    "essential_items": essential_items,
+    "flexible_items": flexible_items,
   }
   return render(request, "customer.html", {"member": member})
 
@@ -419,11 +521,11 @@ def member_api(request):
   except Customer.DoesNotExist:
     return JsonResponse({"found": False})
 
-  category_name = "未分級"
+  customer_category_name = "未分級"
   if customer.categoryid is not None:
     category = CustomerCategory.objects.filter(categoryid=customer.categoryid).first()
     if category and category.customercategory:
-      category_name = category.customercategory
+      customer_category_name = category.customercategory
 
   total_spending = (
     Transaction.objects.filter(customerid=customer.customerid).aggregate(total=Sum("totalprice")).get("total") or 0
@@ -434,7 +536,7 @@ def member_api(request):
     "customerName": customer.customername or "",
     "gender": customer.gender or "",
     "customerRegion": customer.customerregion or "",
-    "memberType": category_name,
+    "memberType": customer_category_name,
     "customerJoinDay": customer.customerjoinday.strftime("%Y-%m-%d") if customer.customerjoinday else "",
     "totalSpending": total_spending,
   }

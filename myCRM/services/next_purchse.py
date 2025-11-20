@@ -379,6 +379,8 @@ def train_next_purchase_model(
     ).to(device)
     
     # 損失函數和優化器
+    # Adam 增加權重，找到參數最佳解，越低越好
+    # 損失函數 是來使用調節器來接近真實值的機制，損失函數越小使梯度下降
     criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     

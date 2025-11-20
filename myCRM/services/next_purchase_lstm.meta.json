@@ -1,1 +1,1 @@
-{"as_of": "2025-11-17", "min_transactions": 3, "max_sequence_length": 10, "hidden_size": 64, "num_layers": 2, "samples_total": 333, "samples_train": 267, "samples_val": 66, "val_mae": 19.391517639160156, "val_rmse": 39.5919075012207, "avg_target_days": 18.783783783783782}
+{"as_of": "2025-11-20", "min_transactions": 3, "max_sequence_length": 10, "hidden_size": 64, "num_layers": 2, "samples_total": 336, "samples_train": 269, "samples_val": 67, "val_mae": 18.95679473876953, "val_rmse": 33.72282028198242, "avg_target_days": 18.482142857142858}

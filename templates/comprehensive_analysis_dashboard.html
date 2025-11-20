@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>綜合客戶分析儀表板</title>
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .dashboard {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .stat-label {
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+        .analysis-section {
+            background: white;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .section-header {
+            background: #3498db;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px 8px 0 0;
+            font-weight: bold;
+        }
+        .section-content {
+            padding: 20px;
+        }
+        .risk-indicator {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+        .risk-high { background: #e74c3c; color: white; }
+        .risk-medium { background: #f39c12; color: white; }
+        .risk-low { background: #27ae60; color: white; }
+        .customer-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+        }
+        .customer-card {
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 10px;
+            background: #f8f9fa;
+        }
+        .refresh-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        .refresh-btn:hover {
+            background: #2980b9;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <h1>🏢 AI CRM 綜合客戶分析儀表板</h1>
+            <p>最後更新時間: {{ analysis_data.analysis_time }}</p>
+            <button class="refresh-btn" onclick="location.reload()">🔄 重新整理數據</button>
+        </div>
+
+        <!-- 關鍵指標卡片 -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{ total_customers }}</div>
+                <div class="stat-label">總客戶數</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ consumption_stats.purchase_conversion_rate }}%</div>
+                <div class="stat-label">購買轉換率</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${{ consumption_stats.total_revenue|floatformat:0 }}</div>
+                <div class="stat-label">總營收</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ churn_summary.high_risk_count }}</div>
+                <div class="stat-label">高風險流失客戶</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ consumption_stats.recent_activity_rate }}%</div>
+                <div class="stat-label">近期活躍率</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${{ consumption_stats.average_order_value|floatformat:0 }}</div>
+                <div class="stat-label">平均訂單金額</div>
+            </div>
+        </div>
+
+        <!-- RFM 客群分佈 -->
+        <div class="analysis-section">
+            <div class="section-header">📊 RFM 客群分佈</div>
+            <div class="section-content">
+                <div class="customer-list">
+                    {% for label, count in analysis_data.rfm_analysis.distribution.labels|zip:analysis_data.rfm_analysis.distribution.counts %}
+                    <div class="customer-card">
+                        <strong>{{ label }}</strong>: {{ count }} 人
+                        <div style="margin-top: 5px;">
+                            <div style="background: #3498db; height: 10px; width: {{ count|mul:100|div:total_customers }}%; border-radius: 5px;"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 流失風險分析 -->
+        <div class="analysis-section">
+            <div class="section-header">⚠️ 流失風險分析</div>
+            <div class="section-content">
+                <p><strong>分析客戶數:</strong> {{ churn_summary.total_analyzed }} 人</p>
+                <p><strong>平均流失機率:</strong> {{ churn_summary.average_churn_probability|mul:100|floatformat:1 }}%</p>
+                
+                <div class="stats-grid" style="margin-top: 20px;">
+                    <div class="stat-card">
+                        <div class="stat-value" style="color: #e74c3c;">{{ churn_summary.high_risk_count }}</div>
+                        <div class="stat-label">高風險客戶</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" style="color: #f39c12;">{{ churn_summary.medium_risk_count }}</div>
+                        <div class="stat-label">中風險客戶</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" style="color: #27ae60;">{{ churn_summary.low_risk_count }}</div>
+                        <div class="stat-label">低風險客戶</div>
+                    </div>
+                </div>
+
+                <h4>🚨 高風險客戶列表 (前10名)</h4>
+                <div class="customer-list">
+                    {% for customer in churn_summary.predictions|slice:":10" %}
+                    {% if customer.risk_level == "high" %}
+                    <div class="customer-card">
+                        <strong>客戶 ID: {{ customer.customerid }}</strong>
+                        <br>流失機率: <span class="risk-{{ customer.risk_level }}">{{ customer.probability|mul:100|floatformat:1 }}%</span>
+                        <br>RFM分數: R{{ customer.rScore }} F{{ customer.fScore }} M{{ customer.mScore }}
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 下次購買預測 -->
+        {% if analysis_data.next_purchase_analysis.total_predictions > 0 %}
+        <div class="analysis-section">
+            <div class="section-header">🛒 下次購買預測</div>
+            <div class="section-content">
+                <p><strong>預測客戶數:</strong> {{ analysis_data.next_purchase_analysis.total_predictions }} 人</p>
+                <p><strong>平均預測天數:</strong> {{ analysis_data.next_purchase_analysis.average_predicted_days }} 天</p>
+                
+                <h4>🎯 即將購買客戶 (7天內)</h4>
+                <div class="customer-list">
+                    {% for customer in analysis_data.next_purchase_analysis.predictions %}
+                    {% if customer.predicted_days <= 7 %}
+                    <div class="customer-card">
+                        <strong>客戶 ID: {{ customer.customer_id }}</strong>
+                        <br>預測天數: <span style="color: #27ae60; font-weight: bold;">{{ customer.predicted_days }} 天</span>
+                        <br>歷史平均間隔: {{ customer.avg_interval_history }} 天
+                        <br>交易次數: {{ customer.total_transactions }}
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 客戶成長趨勢 -->
+        <div class="analysis-section">
+            <div class="section-header">📈 客戶成長趨勢</div>
+            <div class="section-content">
+                <div class="customer-list">
+                    {% for label, growth, new_customers, total in growth_data.labels|zip:growth_data.growth_rates|zip:growth_data.new_customers|zip:growth_data.totals %}
+                    <div class="customer-card">
+                        <strong>{{ label }}</strong>
+                        <br>成長率: <span style="color: {% if growth > 0 %}#27ae60{% else %}#e74c3c{% endif %}; font-weight: bold;">{{ growth }}%</span>
+                        <br>新客戶: {{ new_customers }} 人
+                        <br>累積總數: {{ total }} 人
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 客戶活躍度 -->
+        <div class="analysis-section">
+            <div class="section-header">🔥 客戶活躍度分析</div>
+            <div class="section-content">
+                <div class="customer-list">
+                    {% for label, rate, active, total in activity_data.labels|zip:activity_data.activity_rates|zip:activity_data.active_customers|zip:activity_data.total_customers %}
+                    <div class="customer-card">
+                        <strong>{{ label }}</strong>
+                        <br>活躍率: <span style="color: #3498db; font-weight: bold;">{{ rate }}%</span>
+                        <br>活躍客戶: {{ active }} 人
+                        <br>總客戶數: {{ total }} 人
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- API 使用說明 -->
+        <div class="analysis-section">
+            <div class="section-header">🔗 API 使用說明</div>
+            <div class="section-content">
+                <h4>獲取綜合分析數據:</h4>
+                <code style="background: #f4f4f4; padding: 10px; display: block; margin: 10px 0;">
+                    GET /api/comprehensive-analysis/?top_customers=20
+                </code>
+                
+                <h4>獲取特定客群分析:</h4>
+                <code style="background: #f4f4f4; padding: 10px; display: block; margin: 10px 0;">
+                    GET /api/category-analysis/1/?top_customers=10
+                </code>
+                
+                <p><strong>可用客群ID:</strong></p>
+                <ul>
+                    <li>1 - 忠誠顧客</li>
+                    <li>2 - 潛在高價值顧客</li>
+                    <li>3 - 普通顧客</li>
+                    <li>4 - 低價值顧客</li>
+                    <li>5 - 沉睡顧客</li>
+                    <li>6 - 潛在流失顧客</li>
+                    <li>7 - 新顧客</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 自動重新整理 (每10分鐘)
+        setTimeout(() => {
+            location.reload();
+        }, 600000);
+        
+        // 添加一些互動功能
+        document.querySelectorAll('.customer-card').forEach(card => {
+            card.addEventListener('click', function() {
+                this.style.backgroundColor = this.style.backgroundColor === 'rgb(52, 152, 219)' ? '#f8f9fa' : '#3498db';
+                this.style.color = this.style.color === 'white' ? '#333' : 'white';
+            });
+        });
+    </script>
+</body>
+</html>

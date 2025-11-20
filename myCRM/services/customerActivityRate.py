@@ -60,7 +60,12 @@ def _collect_monthly_counts():
         month_dt = row["month"]
         if month_dt is None:
             continue
-        counts[month_dt.date()] = row["count"]
+        # month_dt可能是datetime或date類型，統一處理
+        if hasattr(month_dt, 'date'):
+            month_key = month_dt.date()
+        else:
+            month_key = month_dt
+        counts[month_key] = row["count"]
     return counts
 
 
